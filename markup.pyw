@@ -73,9 +73,9 @@ class ImageViewer(tk.Tk):
         # Separator
         ttk.Separator(self.toolbar, orient="vertical").pack(side="left", padx=5, fill="y")
 
-        # Settings button - renamed to Show Shadow
+        # Settings button - renamed to Shadow
         self.settings_btn = ttk.Checkbutton(
-            self.toolbar, text="Show Shadow",
+            self.toolbar, text="Shadow",
             variable=self.show_shadow,
             command=self.update_image
         )
@@ -167,8 +167,12 @@ class ImageViewer(tk.Tk):
         if self.rect and self.original_image is not None:
             end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             
-            x0, y0 = min(self.start_x, end_x) - 20, min(self.start_y, end_y) - 20
-            x1, y1 = max(self.start_x, end_x) - 20, max(self.start_y, end_y) - 20
+            # Only subtract border offset if shadow is enabled
+            offset = 20 if self.show_shadow.get() else 0
+            
+            # Determine the smallest and largest x and y coordinates
+            x0, y0 = min(self.start_x, end_x) - offset, min(self.start_y, end_y) - offset
+            x1, y1 = max(self.start_x, end_x) - offset, max(self.start_y, end_y) - offset
 
             overlay = Image.new('RGBA', self.original_image.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
