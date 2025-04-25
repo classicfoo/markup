@@ -51,22 +51,22 @@ class ImageViewer(tk.Tk):
         self.update_image()
 
     def create_context_menu(self):
-        # Drawing mode submenu
-        self.drawing_submenu = tk.Menu(self.context_menu, tearoff=0)
-        self.drawing_submenu.add_radiobutton(
+        # Tools submenu (changed from Drawing mode)
+        self.tools_submenu = tk.Menu(self.context_menu, tearoff=0)
+        self.tools_submenu.add_radiobutton(
             label="Highlighter", 
             variable=self.drawing_mode,
             value="highlighter"
         )
-        self.drawing_submenu.add_radiobutton(
+        self.tools_submenu.add_radiobutton(
             label="Redaction", 
             variable=self.drawing_mode,
             value="redaction"
         )
         
         self.context_menu.add_cascade(
-            label="Drawing Mode",
-            menu=self.drawing_submenu
+            label="Tools",  # Changed from "Drawing Mode"
+            menu=self.tools_submenu
         )
         
         # Add separator

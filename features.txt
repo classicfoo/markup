@@ -18,7 +18,7 @@ When shadow enabled:
 - 20px border padding
 
 ## Drawing/Markup Tools
-Right-click context menu with drawing mode selection:
+Right-click context menu with tools selection:
 - Highlighter tool (default): Semi-transparent yellow rectangles (50% opacity)
 - Redaction tool: Solid black rectangles (100% opacity)
 Click and drag functionality for drawing
