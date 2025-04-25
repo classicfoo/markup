@@ -11,122 +11,90 @@ class ImageViewer(tk.Tk):
         super().__init__()
         self.title("Screenshot Markup")
 
-        # Set ttk theme
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
-
-        # Create toolbar frame
-        self.toolbar = ttk.Frame(self)
-        self.toolbar.pack(side="top", fill="x", padx=5, pady=2)
-
-        # Drawing mode variables
+        # Remove toolbar-related code
         self.drawing_mode = tk.StringVar(value="highlighter")
         self.show_shadow = tk.BooleanVar(value=True)
-
-        # Create toolbar buttons
-        self.create_toolbar()
-
-        # Bind Ctrl+C to copy the image to clipboard
-        self.bind("<Control-c>", self.copy_image)
 
         # Image handling
         self.start_x = None
         self.start_y = None
         self.rect = None
         self.original_image = None
-        #self.load_image(image_path)
         self.final_image = None
 
         # Setting up the canvas
         self.canvas = tk.Canvas(self, cursor="cross")
         self.canvas.pack(fill="both", expand=True)
 
-        # Bind mouse events for drawing - now only using left button
+        # Create context menu
+        self.context_menu = tk.Menu(self, tearoff=0)
+        self.create_context_menu()
+
+        # Bind mouse events
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
+        self.canvas.bind("<Button-3>", self.show_context_menu)  # Right-click
 
-        # Bind Ctrl+V to load image from clipboard
+        # Keyboard shortcuts
         self.bind("<Control-v>", lambda event: self.load_image_from_clipboard())
-        
-        # Bind Ctrl+S to the save_image method in the __init__ constructor
+        self.bind("<Control-c>", self.copy_image)
         self.bind("<Control-s>", lambda event: self.save_image())
 
-        # Display the image
         self.update_image()
-    
-    def create_toolbar(self):
-        # Highlighter tool button
-        self.highlighter_btn = ttk.Radiobutton(
-            self.toolbar, text="Highlighter", 
-            variable=self.drawing_mode, value="highlighter"
+
+    def create_context_menu(self):
+        # Drawing mode submenu
+        self.drawing_submenu = tk.Menu(self.context_menu, tearoff=0)
+        self.drawing_submenu.add_radiobutton(
+            label="Highlighter", 
+            variable=self.drawing_mode,
+            value="highlighter"
         )
-        self.highlighter_btn.pack(side="left", padx=2)
-
-        # Redaction tool button
-        self.redaction_btn = ttk.Radiobutton(
-            self.toolbar, text="Redaction", 
-            variable=self.drawing_mode, value="redaction"
+        self.drawing_submenu.add_radiobutton(
+            label="Redaction", 
+            variable=self.drawing_mode,
+            value="redaction"
         )
-        self.redaction_btn.pack(side="left", padx=2)
-
-        # Separator
-        ttk.Separator(self.toolbar, orient="vertical").pack(side="left", padx=5, fill="y")
-
-        # Settings button - renamed to Shadow
-        self.settings_btn = ttk.Checkbutton(
-            self.toolbar, text="Shadow",
+        
+        self.context_menu.add_cascade(
+            label="Drawing Mode",
+            menu=self.drawing_submenu
+        )
+        
+        # Add separator
+        self.context_menu.add_separator()
+        
+        # Shadow toggle
+        self.context_menu.add_checkbutton(
+            label="Shadow",
             variable=self.show_shadow,
             command=self.update_image
         )
-        self.settings_btn.pack(side="left", padx=2)
 
-    def save_image(self):
-        if self.final_image is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
-            if file_path:
-                # Convert the image to RGB mode before saving
-                self.final_image.convert('RGB').save(file_path, "JPEG")
-
-    def copy_image(self, event):
-        if self.final_image is not None:
-            copy_to_clipboard(self.final_image)
-
-    def load_image(self, image_path):
-        # Try to get image from clipboard
-        img = get_image_from_clipboard()
-        if img is None and image_path is not None:
-            # Load the image from file
-            img = Image.open(image_path)
-        self.original_image = img
-    
-    def load_image_from_clipboard(self):
-        img = get_image_from_clipboard()
-        if img is not None:
-            self.original_image = img
-            self.update_image()
-        else:
-            print("No image found in clipboard.")
-            messagebox.showinfo("Screenshot Markup", "No image found in clipboard.")
+    def show_context_menu(self, event):
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
 
     def update_image(self):
         if self.original_image is not None:
             self.final_image = self.original_image.copy()
             
-            # Only apply shadow if show_shadow is True
             if self.show_shadow.get():
                 self.final_image = add_shadow(self.final_image)
             
             self.display_image = ImageTk.PhotoImage(self.final_image)
 
             # Update canvas with the new image
-            self.canvas.delete("all")  # Clear canvas
+            self.canvas.delete("all")
             self.canvas.create_image(0, 0, anchor="nw", image=self.display_image)
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
             # Resize the window to fit the final image
             window_width = self.final_image.width
-            window_height = self.final_image.height + self.toolbar.winfo_height()
+            window_height = self.final_image.height
             self.geometry(f"{window_width}x{window_height}")
 
     def on_button_press(self, event):
@@ -186,6 +154,34 @@ class ImageViewer(tk.Tk):
             self.original_image = Image.alpha_composite(self.original_image.convert('RGBA'), overlay)
             self.update_image()
 
+    def save_image(self):
+        if self.final_image is not None:
+            file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
+            if file_path:
+                # Convert the image to RGB mode before saving
+                self.final_image.convert('RGB').save(file_path, "JPEG")
+
+    def copy_image(self, event):
+        if self.final_image is not None:
+            copy_to_clipboard(self.final_image)
+
+    def load_image(self, image_path):
+        # Try to get image from clipboard
+        img = get_image_from_clipboard()
+        if img is None and image_path is not None:
+            # Load the image from file
+            img = Image.open(image_path)
+        self.original_image = img
+    
+    def load_image_from_clipboard(self):
+        img = get_image_from_clipboard()
+        if img is not None:
+            self.original_image = img
+            self.update_image()
+        else:
+            print("No image found in clipboard.")
+            messagebox.showinfo("Screenshot Markup", "No image found in clipboard.")
+
 # Existing functions
 def get_image_from_clipboard():
     win32clipboard.OpenClipboard()
@@ -240,14 +236,6 @@ def copy_to_clipboard(image):
     win32clipboard.EmptyClipboard()
     win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
     win32clipboard.CloseClipboard()
-
-#def load_image_from_clipboard(self):
-#    img = get_image_from_clipboard()
-#    if img is not None:
-#        self.original_image = img
-#        self.update_image()
-#    else:
-#        print("No image found in clipboard.")
 
 def main(image_path=None):
     app = ImageViewer(image_path)
