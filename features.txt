@@ -1,0 +1,48 @@
+# Features 
+
+This is a break down the features of this Screenshot Markup program:
+
+## Image Input/Output
+Load images from clipboard (Ctrl+V)
+Load images from file (via command line argument)
+Save images to file (Ctrl+S)
+Copy modified image to clipboard (Ctrl+C)
+
+## Image Enhancement
+Optional light grey border around images (configurable via settings)
+Adds a drop shadow effect with:
+Customizable offset (currently 13,13)
+Grey shadow color
+Blur radius of 8
+White background
+20px border padding
+
+## Drawing/Markup Tools
+Toolbar with drawing mode selection:
+- Highlighter tool (default): Semi-transparent yellow rectangles (50% opacity)
+- Redaction tool: Solid black rectangles (100% opacity)
+Click and drag functionality for both drawing tools
+
+## User Interface
+Modern ttk interface with Clam theme
+Settings button to configure border visibility
+Cross-hair cursor for precise drawing
+Window automatically resizes to fit the loaded image
+Canvas with scroll region support
+Error messages when no image is found in clipboard
+
+## Keyboard Shortcuts
+Ctrl+V: Paste image from clipboard
+Ctrl+C: Copy modified image to clipboard
+Ctrl+S: Save image as JPEG file
+
+## File Handling    
+Supports JPEG output format
+Can handle various input image formats
+Proper clipboard handling for Windows (using win32clipboard)
+File dialog for saving images
+
+## Error Handling
+Checks for valid clipboard content
+Handles image format conversions (RGBA, RGB)
+Shows message box for clipboard-related errors

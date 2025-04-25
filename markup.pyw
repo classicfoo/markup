@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
 import sys
 import win32clipboard
@@ -9,6 +10,21 @@ class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
         self.title("Screenshot Markup")
+
+        # Set ttk theme
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+
+        # Create toolbar frame
+        self.toolbar = ttk.Frame(self)
+        self.toolbar.pack(side="top", fill="x", padx=5, pady=2)
+
+        # Drawing mode variables
+        self.drawing_mode = tk.StringVar(value="highlighter")
+        self.show_border = tk.BooleanVar(value=True)
+
+        # Create toolbar buttons
+        self.create_toolbar()
 
         # Bind Ctrl+C to copy the image to clipboard
         self.bind("<Control-c>", self.copy_image)
@@ -25,13 +41,10 @@ class ImageViewer(tk.Tk):
         self.canvas = tk.Canvas(self, cursor="cross")
         self.canvas.pack(fill="both", expand=True)
 
-        # Bind mouse events for drawing
+        # Bind mouse events for drawing - now only using left button
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
-        self.canvas.bind("<ButtonPress-3>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
-        self.canvas.bind("<B3-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
-        self.canvas.bind("<ButtonRelease-3>", self.on_button_release)
 
         # Bind Ctrl+V to load image from clipboard
         self.bind("<Control-v>", lambda event: self.load_image_from_clipboard())
@@ -42,6 +55,32 @@ class ImageViewer(tk.Tk):
         # Display the image
         self.update_image()
     
+    def create_toolbar(self):
+        # Highlighter tool button
+        self.highlighter_btn = ttk.Radiobutton(
+            self.toolbar, text="Highlighter", 
+            variable=self.drawing_mode, value="highlighter"
+        )
+        self.highlighter_btn.pack(side="left", padx=2)
+
+        # Redaction tool button
+        self.redaction_btn = ttk.Radiobutton(
+            self.toolbar, text="Redaction", 
+            variable=self.drawing_mode, value="redaction"
+        )
+        self.redaction_btn.pack(side="left", padx=2)
+
+        # Separator
+        ttk.Separator(self.toolbar, orient="vertical").pack(side="left", padx=5, fill="y")
+
+        # Settings button
+        self.settings_btn = ttk.Checkbutton(
+            self.toolbar, text="Show Border",
+            variable=self.show_border,
+            command=self.update_image
+        )
+        self.settings_btn.pack(side="left", padx=2)
+
     def save_image(self):
         if self.final_image is not None:
             file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
@@ -70,77 +109,78 @@ class ImageViewer(tk.Tk):
             print("No image found in clipboard.")
             messagebox.showinfo("Screenshot Markup", "No image found in clipboard.")
 
-
     def update_image(self):
         if self.original_image is not None:
-            self.final_image = add_border(self.original_image)
+            # Apply border only if show_border is True
+            if self.show_border.get():
+                self.final_image = add_border(self.original_image)
+            else:
+                self.final_image = self.original_image.copy()
+                
             self.final_image = add_shadow(self.final_image)
             self.display_image = ImageTk.PhotoImage(self.final_image)
 
             # Update canvas with the new image
+            self.canvas.delete("all")  # Clear canvas
             self.canvas.create_image(0, 0, anchor="nw", image=self.display_image)
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
             # Resize the window to fit the final image
             window_width = self.final_image.width
-            window_height = self.final_image.height
+            window_height = self.final_image.height + self.toolbar.winfo_height()
             self.geometry(f"{window_width}x{window_height}")
 
     def on_button_press(self, event):
-        # Convert event coordinates to canvas coordinates
         self.start_x = self.canvas.canvasx(event.x)
         self.start_y = self.canvas.canvasy(event.y)
-        # Store which button was pressed
-        self.button = event.num
-        # Create a rectangle (initially a single point) with different colors depending on the button
-        if self.button == 1:
+        
+        # Set colors based on drawing mode
+        if self.drawing_mode.get() == "highlighter":
             outline_color = "yellow"
             fill_color = "yellow"
-        elif self.button == 3:
+        else:  # redaction mode
             outline_color = "black"
             fill_color = "black"
-        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, self.start_x + 1, self.start_y + 1, outline=outline_color, fill=fill_color)
+            
+        self.rect = self.canvas.create_rectangle(
+            self.start_x, self.start_y, 
+            self.start_x + 1, self.start_y + 1,
+            outline=outline_color, fill=fill_color
+        )
 
     def on_move_press(self, event):
         curX, curY = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         if self.rect:
-            # Determine the smallest and largest x and y coordinates
             x0, y0 = min(self.start_x, curX), min(self.start_y, curY)
             x1, y1 = max(self.start_x, curX), max(self.start_y, curY)
             self.canvas.coords(self.rect, x0, y0, x1, y1)
-            # Update the color of the rectangle depending on the button
-            if self.button == 1:
+            
+            if self.drawing_mode.get() == "highlighter":
                 outline_color = "yellow"
                 fill_color = "yellow"
-            elif self.button == 3:
+            else:  # redaction mode
                 outline_color = "black"
                 fill_color = "black"
+                
             self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple="gray50")
-
-
 
     def on_button_release(self, event):
         if self.rect and self.original_image is not None:
             end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             
-            # Determine the smallest and largest x and y coordinates
             x0, y0 = min(self.start_x, end_x) - 20, min(self.start_y, end_y) - 20
             x1, y1 = max(self.start_x, end_x) - 20, max(self.start_y, end_y) - 20
 
-            # Create a transparent overlay
             overlay = Image.new('RGBA', self.original_image.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
 
-            # Draw the rectangle on the overlay with different colors depending on the button
-            if self.button == 1:
+            if self.drawing_mode.get() == "highlighter":
                 color = (255, 255, 0, 128)  # Yellow, 50% opacity
-            elif self.button == 3:
+            else:  # redaction mode
                 color = (0, 0, 0, 255)  # Black, 100% opacity
+                
             draw.rectangle([x0, y0, x1, y1], fill=color)
-
-            # Combine original image with overlay
             self.original_image = Image.alpha_composite(self.original_image.convert('RGBA'), overlay)
-
             self.update_image()
 
 # Existing functions
