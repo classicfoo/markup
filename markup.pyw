@@ -11,6 +11,11 @@ class ImageViewer(tk.Tk):
         super().__init__()
         self.title("Screenshot Markup")
 
+        # Add undo/redo stacks
+        self.undo_stack = []
+        self.redo_stack = []
+        self.max_undos = 20  # Limit stack size to prevent memory issues
+
         # Remove toolbar-related code
         self.drawing_mode = tk.StringVar(value="highlighter")
         self.show_shadow = tk.BooleanVar(value=True)
@@ -40,6 +45,8 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-v>", lambda event: self.load_image_from_clipboard())
         self.bind("<Control-c>", self.copy_image)
         self.bind("<Control-s>", lambda event: self.save_image())
+        self.bind("<Control-z>", self.undo)
+        self.bind("<Control-y>", self.redo)
 
         self.update_image()
 
@@ -70,6 +77,18 @@ class ImageViewer(tk.Tk):
             label="Shadow",
             variable=self.show_shadow,
             command=self.update_image
+        )
+
+        # Add separator and undo/redo menu items
+        self.context_menu.add_separator()
+        
+        self.context_menu.add_command(
+            label="Undo (Ctrl+Z)",
+            command=lambda: self.undo(None)
+        )
+        self.context_menu.add_command(
+            label="Redo (Ctrl+Y)",
+            command=lambda: self.redo(None)
         )
 
     def show_context_menu(self, event):
@@ -133,6 +152,9 @@ class ImageViewer(tk.Tk):
 
     def on_button_release(self, event):
         if self.rect and self.original_image is not None:
+            # Save current state before making changes
+            self.save_state()
+            
             end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             
             # Only subtract border offset if shadow is enabled
@@ -176,11 +198,48 @@ class ImageViewer(tk.Tk):
     def load_image_from_clipboard(self):
         img = get_image_from_clipboard()
         if img is not None:
+            # Clear undo/redo stacks when loading new image
+            self.undo_stack.clear()
+            self.redo_stack.clear()
+            
             self.original_image = img
             self.update_image()
         else:
             print("No image found in clipboard.")
             messagebox.showinfo("Screenshot Markup", "No image found in clipboard.")
+
+    def save_state(self):
+        """Save current state for undo"""
+        if self.original_image:
+            # Clear redo stack when new action is performed
+            self.redo_stack.clear()
+            
+            # Save a copy of the current state
+            self.undo_stack.append(self.original_image.copy())
+            
+            # Limit stack size
+            if len(self.undo_stack) > self.max_undos:
+                self.undo_stack.pop(0)
+
+    def undo(self, event):
+        """Restore previous state"""
+        if self.undo_stack and self.original_image:
+            # Save current state to redo stack
+            self.redo_stack.append(self.original_image.copy())
+            
+            # Restore previous state
+            self.original_image = self.undo_stack.pop()
+            self.update_image()
+
+    def redo(self, event):
+        """Restore previously undone state"""
+        if self.redo_stack and self.original_image:
+            # Save current state to undo stack
+            self.undo_stack.append(self.original_image.copy())
+            
+            # Restore previously undone state
+            self.original_image = self.redo_stack.pop()
+            self.update_image()
 
 # Existing functions
 def get_image_from_clipboard():
