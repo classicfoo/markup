@@ -21,7 +21,7 @@ class ImageViewer(tk.Tk):
 
         # Drawing mode variables
         self.drawing_mode = tk.StringVar(value="highlighter")
-        self.show_border = tk.BooleanVar(value=True)
+        self.show_shadow = tk.BooleanVar(value=True)
 
         # Create toolbar buttons
         self.create_toolbar()
@@ -73,10 +73,10 @@ class ImageViewer(tk.Tk):
         # Separator
         ttk.Separator(self.toolbar, orient="vertical").pack(side="left", padx=5, fill="y")
 
-        # Settings button
+        # Settings button - renamed to Show Shadow
         self.settings_btn = ttk.Checkbutton(
-            self.toolbar, text="Show Border",
-            variable=self.show_border,
+            self.toolbar, text="Show Shadow",
+            variable=self.show_shadow,
             command=self.update_image
         )
         self.settings_btn.pack(side="left", padx=2)
@@ -111,13 +111,12 @@ class ImageViewer(tk.Tk):
 
     def update_image(self):
         if self.original_image is not None:
-            # Apply border only if show_border is True
-            if self.show_border.get():
-                self.final_image = add_border(self.original_image)
-            else:
-                self.final_image = self.original_image.copy()
-                
-            self.final_image = add_shadow(self.final_image)
+            self.final_image = self.original_image.copy()
+            
+            # Only apply shadow if show_shadow is True
+            if self.show_shadow.get():
+                self.final_image = add_shadow(self.final_image)
+            
             self.display_image = ImageTk.PhotoImage(self.final_image)
 
             # Update canvas with the new image
