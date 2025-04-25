@@ -1,0 +1,6 @@
+# Core dependencies
+Pillow>=10.0.0  # Python Imaging Library for image processing
+pywin32>=306    # Windows API access for clipboard operations
+pyperclip>=1.8.2  # Cross-platform clipboard operations
+
+# Note: tkinter comes with Python standard library, no need to include 
