@@ -79,18 +79,6 @@ class ImageViewer(tk.Tk):
             command=self.update_image
         )
 
-        # Add separator and undo/redo menu items
-        self.context_menu.add_separator()
-        
-        self.context_menu.add_command(
-            label="Undo (Ctrl+Z)",
-            command=lambda: self.undo(None)
-        )
-        self.context_menu.add_command(
-            label="Redo (Ctrl+Y)",
-            command=lambda: self.redo(None)
-        )
-
     def show_context_menu(self, event):
         try:
             self.context_menu.tk_popup(event.x_root, event.y_root)
