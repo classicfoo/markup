@@ -9,23 +9,27 @@ Save images to file (Ctrl+S)
 Copy modified image to clipboard (Ctrl+C)
 
 ## Image Enhancement
-Optional light grey border around images (configurable via settings)
-Adds a drop shadow effect with:
-Customizable offset (currently 13,13)
-Grey shadow color
-Blur radius of 8
-White background
-20px border padding
+Optional drop shadow effect (toggleable via context menu)
+When shadow enabled:
+- Customizable offset (currently 13,13)
+- Grey shadow color
+- Blur radius of 8
+- White background
+- 20px border padding
 
 ## Drawing/Markup Tools
-Toolbar with drawing mode selection:
+Right-click context menu with drawing mode selection:
 - Highlighter tool (default): Semi-transparent yellow rectangles (50% opacity)
 - Redaction tool: Solid black rectangles (100% opacity)
-Click and drag functionality for both drawing tools
+Click and drag functionality for drawing
+
+## Edit Operations
+Undo (Ctrl+Z): Revert last drawing action
+Redo (Ctrl+Y): Restore previously undone action
+Maintains history of up to 20 states
 
 ## User Interface
-Modern ttk interface with Clam theme
-Settings button to configure border visibility
+Context menu for tool selection and shadow toggle
 Cross-hair cursor for precise drawing
 Window automatically resizes to fit the loaded image
 Canvas with scroll region support
@@ -35,6 +39,8 @@ Error messages when no image is found in clipboard
 Ctrl+V: Paste image from clipboard
 Ctrl+C: Copy modified image to clipboard
 Ctrl+S: Save image as JPEG file
+Ctrl+Z: Undo last action
+Ctrl+Y: Redo last undone action
 
 ## File Handling    
 Supports JPEG output format
