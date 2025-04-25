@@ -4,7 +4,73 @@ from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
 import sys
 import win32clipboard
 from io import BytesIO
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, colorchooser
+import pyperclip  # You'll need to pip install pyperclip
+
+class ColorInfoDialog(tk.Toplevel):
+    def __init__(self, parent, color_rgb, x, y):
+        super().__init__(parent)
+        self.title("Color Information")
+        
+        # Make dialog modal
+        self.transient(parent)
+        self.grab_set()
+        
+        # Convert RGB to hex
+        rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
+        
+        # Create main frame with padding
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Color preview at the top
+        preview_frame = ttk.Frame(main_frame)
+        preview_frame.pack(fill="x", pady=(0, 10))
+        preview = tk.Canvas(preview_frame, width=50, height=50, bg=rgb_hex)
+        preview.pack()
+
+        # Create grid frame
+        grid_frame = ttk.Frame(main_frame)
+        grid_frame.pack(fill="x", pady=(0, 10))
+        
+        # Position information
+        ttk.Label(grid_frame, text="Position:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
+        pos_var = tk.StringVar(value=f"{x}, {y}")
+        pos_entry = ttk.Entry(grid_frame, textvariable=pos_var, width=20, state="readonly")
+        pos_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+        ttk.Button(grid_frame, text="Copy", 
+                  command=lambda: pyperclip.copy(pos_var.get())
+        ).grid(row=0, column=2, padx=5, pady=2)
+        
+        # RGB information
+        ttk.Label(grid_frame, text="RGB:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        rgb_var = tk.StringVar(value=f"{color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]}")
+        rgb_entry = ttk.Entry(grid_frame, textvariable=rgb_var, width=20, state="readonly")
+        rgb_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        ttk.Button(grid_frame, text="Copy",
+                  command=lambda: pyperclip.copy(rgb_var.get())
+        ).grid(row=1, column=2, padx=5, pady=2)
+        
+        # Hex information
+        ttk.Label(grid_frame, text="Hex:").grid(row=2, column=0, sticky="e", padx=5, pady=2)
+        hex_var = tk.StringVar(value=rgb_hex)
+        hex_entry = ttk.Entry(grid_frame, textvariable=hex_var, width=20, state="readonly")
+        hex_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+        ttk.Button(grid_frame, text="Copy",
+                  command=lambda: pyperclip.copy(hex_var.get())
+        ).grid(row=2, column=2, padx=5, pady=2)
+        
+        # Close button at the bottom
+        ttk.Button(main_frame, text="Close", command=self.destroy).pack(pady=(0, 5))
+        
+        # Configure grid weights
+        grid_frame.columnconfigure(1, weight=1)
+        
+        # Center dialog on parent window
+        self.geometry(f"+{parent.winfo_rootx() + 50}+{parent.winfo_rooty() + 50}")
+        
+        # Make dialog non-resizable
+        self.resizable(False, False)
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
@@ -63,6 +129,11 @@ class ImageViewer(tk.Tk):
             variable=self.drawing_mode,
             value="redaction"
         )
+        self.tools_submenu.add_radiobutton(
+            label="Color Picker",
+            variable=self.drawing_mode,
+            value="color_picker"
+        )
         
         self.context_menu.add_cascade(
             label="Tools",  # Changed from "Drawing Mode"
@@ -105,6 +176,28 @@ class ImageViewer(tk.Tk):
             self.geometry(f"{window_width}x{window_height}")
 
     def on_button_press(self, event):
+        if self.drawing_mode.get() == "color_picker":
+            if self.original_image is not None:
+                # Get coordinates relative to the image
+                x = int(self.canvas.canvasx(event.x))
+                y = int(self.canvas.canvasy(event.y))
+                
+                # Adjust coordinates if shadow is enabled
+                offset = 20 if self.show_shadow.get() else 0
+                x -= offset
+                y -= offset
+                
+                # Get color at clicked position
+                try:
+                    color = self.original_image.getpixel((x, y))
+                    if len(color) > 3:  # If RGBA, convert to RGB
+                        color = color[:3]
+                    ColorInfoDialog(self, color, x, y)
+                except IndexError:
+                    # Clicked outside image bounds
+                    pass
+            return
+            
         self.start_x = self.canvas.canvasx(event.x)
         self.start_y = self.canvas.canvasy(event.y)
         

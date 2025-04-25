@@ -21,7 +21,8 @@ When shadow enabled:
 Right-click context menu with tools selection:
 - Highlighter tool (default): Semi-transparent yellow rectangles (50% opacity)
 - Redaction tool: Solid black rectangles (100% opacity)
-Click and drag functionality for drawing
+- Color Picker tool: Shows color information at clicked position
+Click and drag functionality for drawing tools
 
 ## Edit Operations
 Undo (Ctrl+Z): Revert last drawing action
@@ -52,3 +53,10 @@ File dialog for saving images
 Checks for valid clipboard content
 Handles image format conversions (RGBA, RGB)
 Shows message box for clipboard-related errors
+
+## Color Picker Features
+Shows dialog with:
+- Color preview
+- RGB values with copy button
+- Hex color code with copy button
+- Click coordinates with copy button
