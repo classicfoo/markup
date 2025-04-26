@@ -1,8 +1,8 @@
 # Screenshot Markup Tool
 
-![Screenshot of Markup Tool in action](screenshot.jpg)
-
 A Windows desktop application for quickly marking up screenshots with highlighting, redaction, and color picking capabilities. Perfect for documentation, tutorials, or redacting sensitive information.
+
+![Screenshot of Markup Tool in action](screenshot.jpg)
 
 ## Features
 
