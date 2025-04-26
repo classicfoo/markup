@@ -94,4 +94,3 @@ This project is licensed under the GPLv3 License - see the LICENSE file for deta
 
 - Built with Python and Tkinter
 - Uses Pillow for image processing
-- Special thanks to all contributors

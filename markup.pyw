@@ -343,6 +343,9 @@ def add_shadow(image, offset=(13, 13), background_color='white', shadow_color='g
     if image.mode != 'RGBA':
         image = image.convert('RGBA')
 
+    # Add 1px light grey border to the original image
+    image = add_border(image, border=1, color='lightgrey')
+
     # Create an image for the shadow
     total_width = image.width + abs(offset[0]) + 2*border
     total_height = image.height + abs(offset[1]) + 2*border
