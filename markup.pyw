@@ -113,7 +113,10 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-s>", lambda event: self.save_image())
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-y>", self.redo)
+        self.bind("<Control-l>", lambda event: self.load_image_from_file())
 
+        if image_path:
+            self.load_image(image_path)
         self.update_image()
 
     def create_context_menu(self):
@@ -321,6 +324,26 @@ class ImageViewer(tk.Tk):
             # Restore previously undone state
             self.original_image = self.redo_stack.pop()
             self.update_image()
+
+    def load_image_from_file(self):
+        """Load an image from a file using a file dialog"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            try:
+                # Clear undo/redo stacks when loading new image
+                self.undo_stack.clear()
+                self.redo_stack.clear()
+                
+                # Load and display the image
+                self.original_image = Image.open(file_path)
+                self.update_image()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load image: {str(e)}")
 
 # Existing functions
 def get_image_from_clipboard():

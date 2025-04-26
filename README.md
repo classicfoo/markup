@@ -28,6 +28,7 @@ A Windows desktop application for quickly marking up screenshots with highlighti
 | Ctrl+V | Paste image from clipboard |
 | Ctrl+C | Copy modified image to clipboard |
 | Ctrl+S | Save image as JPEG |
+| Ctrl+L | Load image from file |
 | Ctrl+Z | Undo last action |
 | Ctrl+Y | Redo last action |
 
@@ -94,3 +95,4 @@ This project is licensed under the GPLv3 License - see the LICENSE file for deta
 
 - Built with Python and Tkinter
 - Uses Pillow for image processing
+- Special thanks to all contributors
