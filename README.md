@@ -1,6 +1,6 @@
 # Screenshot Markup Tool
 
-A Windows desktop application for quickly marking up screenshots with highlighting, redaction, and color picking capabilities. Perfect for documentation, tutorials, or redacting sensitive information.
+A desktop application for quickly marking up screenshots with highlighting, redaction, and color picking capabilities. Perfect for documentation, tutorials, or redacting sensitive information on Windows or Linux.
 
 ![Screenshot of Markup Tool in action](screenshot.jpg)
 
@@ -42,17 +42,19 @@ A Windows desktop application for quickly marking up screenshots with highlighti
 6. Save (Ctrl+S) or copy (Ctrl+C) the result
 
 ## Requirements
-- Windows 10 or later
+- Windows 10 or later, or Linux (Wayland/X11)
 - Python 3.8 or higher
 - Required packages (automatically installed during setup):
   - Pillow >= 10.0.0 (Image processing)
   - pywin32 >= 306 (Windows clipboard operations)
   - pyperclip >= 1.8.2 (Cross-platform clipboard support)
   - tkinter (Included with Python)
+- Linux clipboard helper (for image copy):
+  - `wl-clipboard` (Wayland) or `xclip` (X11)
 
 ## Installation
 
-1. Make sure you have Python 3.8 or higher installed on your Windows computer
+1. Make sure you have Python 3.8 or higher installed on your system
    - Download Python from [python.org](https://www.python.org/downloads/)
    - During installation, make sure to check "Add Python to PATH"
 
@@ -60,18 +62,20 @@ A Windows desktop application for quickly marking up screenshots with highlighti
    - Download the ZIP file of this project
    - Extract it to a folder of your choice
 
-3. Open Command Prompt in the extracted folder:
-   - Hold Shift + Right-click in the folder
-   - Select "Open PowerShell window here" or "Open Command window here"
+3. Open a terminal in the extracted folder
 
 4. Install the required packages by typing:
    ```
    pip install -r requirements.txt
    ```
 
-5. Double-click `markup.pyw` to run the application
-   - You can also create a shortcut to `markup.pyw` on your desktop
-   - To always run with Python, right-click → Open with → Python
+5. Run the application
+   - Windows: double-click `markup.pyw`
+   - Linux: run `python3 markup.pyw`
+
+### Linux clipboard setup
+- Wayland: `sudo apt install wl-clipboard`
+- X11: `sudo apt install xclip`
 
 ## Development
 

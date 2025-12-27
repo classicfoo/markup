@@ -1,8 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
 import sys
-import win32clipboard
+import subprocess
+import shutil
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
@@ -269,7 +270,10 @@ class ImageViewer(tk.Tk):
 
     def copy_image(self, event):
         if self.final_image is not None:
-            copy_to_clipboard(self.final_image)
+            try:
+                copy_to_clipboard(self.final_image)
+            except RuntimeError as error:
+                messagebox.showerror("Clipboard Error", str(error))
 
     def load_image(self, image_path):
         # Try to get image from clipboard
@@ -347,18 +351,32 @@ class ImageViewer(tk.Tk):
 
 # Existing functions
 def get_image_from_clipboard():
-    win32clipboard.OpenClipboard()
-    try:
-        # Check if the clipboard contains an image format
-        if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_DIB):
-            data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
-            image = Image.open(BytesIO(data))
-            return image
-        else:
-            print("No image in clipboard")
+    if sys.platform.startswith("win"):
+        import win32clipboard
+
+        win32clipboard.OpenClipboard()
+        try:
+            # Check if the clipboard contains an image format
+            if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_DIB):
+                data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
+                image = Image.open(BytesIO(data))
+                return image
+            else:
+                print("No image in clipboard")
+                return None
+        finally:
+            win32clipboard.CloseClipboard()
+
+    clipboard_content = ImageGrab.grabclipboard()
+    if isinstance(clipboard_content, Image.Image):
+        return clipboard_content
+    if isinstance(clipboard_content, list) and clipboard_content:
+        try:
+            return Image.open(clipboard_content[0])
+        except Exception:
             return None
-    finally:
-        win32clipboard.CloseClipboard()
+    print("No image in clipboard")
+    return None
 
 
 def add_shadow(image, offset=(13, 13), background_color='white', shadow_color='grey', border=20, blur_radius=8):
@@ -393,15 +411,44 @@ def add_border(image, border=1, color='lightgrey'):
     return image_with_border
 
 def copy_to_clipboard(image):
+    if sys.platform.startswith("win"):
+        import win32clipboard
+
+        output = BytesIO()
+        image.convert('RGB').save(output, 'BMP')
+        data = output.getvalue()[14:]  # Remove the 14-byte BMP header
+        output.close()
+
+        win32clipboard.OpenClipboard()
+        win32clipboard.EmptyClipboard()
+        win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
+        win32clipboard.CloseClipboard()
+        return
+
     output = BytesIO()
-    image.convert('RGB').save(output, 'BMP')
-    data = output.getvalue()[14:]  # Remove the 14-byte BMP header
+    image.convert('RGBA').save(output, 'PNG')
+    data = output.getvalue()
     output.close()
 
-    win32clipboard.OpenClipboard()
-    win32clipboard.EmptyClipboard()
-    win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
-    win32clipboard.CloseClipboard()
+    if shutil.which("wl-copy"):
+        subprocess.run(
+            ["wl-copy", "--type", "image/png"],
+            input=data,
+            check=True,
+        )
+        return
+
+    if shutil.which("xclip"):
+        subprocess.run(
+            ["xclip", "-selection", "clipboard", "-t", "image/png", "-i"],
+            input=data,
+            check=True,
+        )
+        return
+
+    raise RuntimeError(
+        "No clipboard tool found. Install wl-clipboard or xclip to copy images."
+    )
 
 def main(image_path=None):
     app = ImageViewer(image_path)
