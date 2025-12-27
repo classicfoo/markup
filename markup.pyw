@@ -2,8 +2,10 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
 import sys
+import numbers
 import win32clipboard
 from io import BytesIO
+from collections.abc import Sequence
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
 
@@ -14,63 +16,153 @@ class ColorInfoDialog(tk.Toplevel):
         
         # Make dialog modal
         self.transient(parent)
-        self.grab_set()
         
+        normalized_rgb = (0, 0, 0)
+        try:
+            if isinstance(color_rgb, numbers.Integral):
+                normalized_rgb = (int(color_rgb),) * 3
+            elif isinstance(color_rgb, Sequence):
+                rgb_values = list(color_rgb)[:3]
+                if len(rgb_values) != 3:
+                    raise ValueError("RGB sequence does not contain 3 values")
+                normalized_rgb = tuple(int(value) for value in rgb_values)
+            else:
+                raise TypeError("Unsupported color value")
+        except Exception as exc:
+            print(f"Failed to normalize color_rgb ({color_rgb!r}): {exc}", file=sys.stderr)
+            messagebox.showwarning(
+                "Color Warning",
+                "Unable to normalize the selected color. Falling back to black."
+            )
+        color_rgb = normalized_rgb
+
         # Convert RGB to hex
         rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
-        
-        # Create main frame with padding
-        main_frame = ttk.Frame(self, padding="10")
-        main_frame.pack(fill="both", expand=True)
-        
-        # Color preview at the top
-        preview_frame = ttk.Frame(main_frame)
-        preview_frame.pack(fill="x", pady=(0, 10))
-        preview = tk.Canvas(preview_frame, width=50, height=50, bg=rgb_hex)
-        preview.pack()
 
-        # Create grid frame
-        grid_frame = ttk.Frame(main_frame)
-        grid_frame.pack(fill="x", pady=(0, 10))
-        
-        # Position information
-        ttk.Label(grid_frame, text="Position:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
-        pos_var = tk.StringVar(value=f"{x}, {y}")
-        pos_entry = ttk.Entry(grid_frame, textvariable=pos_var, width=20, state="readonly")
-        pos_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy", 
-                  command=lambda: pyperclip.copy(pos_var.get())
-        ).grid(row=0, column=2, padx=5, pady=2)
-        
-        # RGB information
-        ttk.Label(grid_frame, text="RGB:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
-        rgb_var = tk.StringVar(value=f"{color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]}")
-        rgb_entry = ttk.Entry(grid_frame, textvariable=rgb_var, width=20, state="readonly")
-        rgb_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy",
-                  command=lambda: pyperclip.copy(rgb_var.get())
-        ).grid(row=1, column=2, padx=5, pady=2)
-        
-        # Hex information
-        ttk.Label(grid_frame, text="Hex:").grid(row=2, column=0, sticky="e", padx=5, pady=2)
-        hex_var = tk.StringVar(value=rgb_hex)
-        hex_entry = ttk.Entry(grid_frame, textvariable=hex_var, width=20, state="readonly")
-        hex_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy",
-                  command=lambda: pyperclip.copy(hex_var.get())
-        ).grid(row=2, column=2, padx=5, pady=2)
-        
-        # Close button at the bottom
-        ttk.Button(main_frame, text="Close", command=self.destroy).pack(pady=(0, 5))
-        
-        # Configure grid weights
-        grid_frame.columnconfigure(1, weight=1)
-        
-        # Center dialog on parent window
-        self.geometry(f"+{parent.winfo_rootx() + 50}+{parent.winfo_rooty() + 50}")
-        
-        # Make dialog non-resizable
-        self.resizable(False, False)
+        try:
+            label_bg = self.cget("bg")
+            label_fg = "black"
+            entry_bg = "white"
+            entry_fg = "black"
+            button_bg = self.cget("bg")
+            button_fg = "black"
+
+            # Create main frame with padding
+            main_frame = ttk.Frame(self, padding="10")
+            main_frame.pack(fill="both", expand=True)
+
+            # Color preview at the top
+            preview_frame = ttk.Frame(main_frame)
+            preview_frame.pack(fill="x", pady=(0, 10))
+            preview = tk.Canvas(preview_frame, width=50, height=50, bg=rgb_hex)
+            preview.pack()
+
+            # Create grid frame
+            grid_frame = ttk.Frame(main_frame)
+            grid_frame.pack(fill="x", pady=(0, 10))
+
+            # Position information
+            tk.Label(grid_frame, text="Position:", fg=label_fg, bg=label_bg).grid(
+                row=0, column=0, sticky="e", padx=5, pady=2
+            )
+            pos_var = tk.StringVar(value=f"{x}, {y}")
+            pos_entry = tk.Entry(
+                grid_frame,
+                textvariable=pos_var,
+                width=20,
+                state="readonly",
+                fg=entry_fg,
+                bg=entry_bg,
+                readonlybackground=entry_bg,
+            )
+            pos_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
+            tk.Button(
+                grid_frame,
+                text="Copy",
+                fg=button_fg,
+                bg=button_bg,
+                command=lambda: pyperclip.copy(pos_var.get()),
+            ).grid(row=0, column=2, padx=5, pady=2)
+
+            # RGB information
+            tk.Label(grid_frame, text="RGB:", fg=label_fg, bg=label_bg).grid(
+                row=1, column=0, sticky="e", padx=5, pady=2
+            )
+            rgb_var = tk.StringVar(value=f"{color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]}")
+            rgb_entry = tk.Entry(
+                grid_frame,
+                textvariable=rgb_var,
+                width=20,
+                state="readonly",
+                fg=entry_fg,
+                bg=entry_bg,
+                readonlybackground=entry_bg,
+            )
+            rgb_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
+            tk.Button(
+                grid_frame,
+                text="Copy",
+                fg=button_fg,
+                bg=button_bg,
+                command=lambda: pyperclip.copy(rgb_var.get()),
+            ).grid(row=1, column=2, padx=5, pady=2)
+
+            # Hex information
+            tk.Label(grid_frame, text="Hex:", fg=label_fg, bg=label_bg).grid(
+                row=2, column=0, sticky="e", padx=5, pady=2
+            )
+            hex_var = tk.StringVar(value=rgb_hex)
+            hex_entry = tk.Entry(
+                grid_frame,
+                textvariable=hex_var,
+                width=20,
+                state="readonly",
+                fg=entry_fg,
+                bg=entry_bg,
+                readonlybackground=entry_bg,
+            )
+            hex_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
+            tk.Button(
+                grid_frame,
+                text="Copy",
+                fg=button_fg,
+                bg=button_bg,
+                command=lambda: pyperclip.copy(hex_var.get()),
+            ).grid(row=2, column=2, padx=5, pady=2)
+
+            # Close button at the bottom
+            tk.Button(
+                main_frame,
+                text="Close",
+                fg=button_fg,
+                bg=button_bg,
+                command=self.destroy,
+            ).pack(pady=(0, 5))
+
+            # Configure grid weights
+            grid_frame.columnconfigure(1, weight=1)
+
+            # Ensure geometry is computed before positioning
+            self.update_idletasks()
+            self.minsize(main_frame.winfo_reqwidth(), main_frame.winfo_reqheight())
+
+            # Center dialog on parent window
+            self.geometry(f"+{parent.winfo_rootx() + 50}+{parent.winfo_rooty() + 50}")
+
+            # Make dialog non-resizable
+            self.resizable(False, False)
+
+            # Make dialog modal after it is viewable
+            self.update_idletasks()
+            self.wait_visibility()
+            self.grab_set()
+        except Exception as exc:
+            print(f"Failed to build ColorInfoDialog widgets: {exc}", file=sys.stderr)
+            messagebox.showerror(
+                "Color Information Error",
+                "Unable to build the color information dialog."
+            )
+            self.destroy()
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
