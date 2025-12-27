@@ -17,6 +17,12 @@ class ColorInfoDialog(tk.Toplevel):
         self.transient(parent)
         self.grab_set()
         
+        # Normalize color to RGB tuple
+        if isinstance(color_rgb, int):
+            color_rgb = (color_rgb, color_rgb, color_rgb)
+        elif len(color_rgb) > 3:
+            color_rgb = color_rgb[:3]
+
         # Convert RGB to hex
         rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
         
