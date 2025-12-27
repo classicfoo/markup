@@ -21,48 +21,48 @@ class ColorInfoDialog(tk.Toplevel):
         rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
         
         # Create main frame with padding
-        main_frame = ttk.Frame(self, padding="10")
+        main_frame = tk.Frame(self, padx=10, pady=10)
         main_frame.pack(fill="both", expand=True)
         
         # Color preview at the top
-        preview_frame = ttk.Frame(main_frame)
+        preview_frame = tk.Frame(main_frame)
         preview_frame.pack(fill="x", pady=(0, 10))
         preview = tk.Canvas(preview_frame, width=50, height=50, bg=rgb_hex)
         preview.pack()
 
         # Create grid frame
-        grid_frame = ttk.Frame(main_frame)
+        grid_frame = tk.Frame(main_frame)
         grid_frame.pack(fill="x", pady=(0, 10))
         
         # Position information
-        ttk.Label(grid_frame, text="Position:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
+        tk.Label(grid_frame, text="Position:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
         pos_var = tk.StringVar(value=f"{x}, {y}")
-        pos_entry = ttk.Entry(grid_frame, textvariable=pos_var, width=20, state="readonly")
+        pos_entry = tk.Entry(grid_frame, textvariable=pos_var, width=20, state="readonly")
         pos_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy", 
+        tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(pos_var.get())
         ).grid(row=0, column=2, padx=5, pady=2)
         
         # RGB information
-        ttk.Label(grid_frame, text="RGB:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
+        tk.Label(grid_frame, text="RGB:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
         rgb_var = tk.StringVar(value=f"{color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]}")
-        rgb_entry = ttk.Entry(grid_frame, textvariable=rgb_var, width=20, state="readonly")
+        rgb_entry = tk.Entry(grid_frame, textvariable=rgb_var, width=20, state="readonly")
         rgb_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy",
+        tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(rgb_var.get())
         ).grid(row=1, column=2, padx=5, pady=2)
         
         # Hex information
-        ttk.Label(grid_frame, text="Hex:").grid(row=2, column=0, sticky="e", padx=5, pady=2)
+        tk.Label(grid_frame, text="Hex:").grid(row=2, column=0, sticky="e", padx=5, pady=2)
         hex_var = tk.StringVar(value=rgb_hex)
-        hex_entry = ttk.Entry(grid_frame, textvariable=hex_var, width=20, state="readonly")
+        hex_entry = tk.Entry(grid_frame, textvariable=hex_var, width=20, state="readonly")
         hex_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-        ttk.Button(grid_frame, text="Copy",
+        tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(hex_var.get())
         ).grid(row=2, column=2, padx=5, pady=2)
         
         # Close button at the bottom
-        ttk.Button(main_frame, text="Close", command=self.destroy).pack(pady=(0, 5))
+        tk.Button(main_frame, text="Close", command=self.destroy).pack(pady=(0, 5))
         
         # Configure grid weights
         grid_frame.columnconfigure(1, weight=1)
