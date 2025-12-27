@@ -43,7 +43,13 @@ class ColorInfoDialog(tk.Toplevel):
         # Position information
         tk.Label(grid_frame, text="Position:").grid(row=0, column=0, sticky="e", padx=5, pady=2)
         pos_var = tk.StringVar(value=f"{x}, {y}")
-        pos_entry = tk.Entry(grid_frame, textvariable=pos_var, width=20, state="readonly")
+        pos_entry = tk.Entry(
+            grid_frame,
+            textvariable=pos_var,
+            width=20,
+            state="disabled",
+            disabledforeground="black",
+        )
         pos_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
         tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(pos_var.get())
@@ -52,7 +58,13 @@ class ColorInfoDialog(tk.Toplevel):
         # RGB information
         tk.Label(grid_frame, text="RGB:").grid(row=1, column=0, sticky="e", padx=5, pady=2)
         rgb_var = tk.StringVar(value=f"{color_rgb[0]}, {color_rgb[1]}, {color_rgb[2]}")
-        rgb_entry = tk.Entry(grid_frame, textvariable=rgb_var, width=20, state="readonly")
+        rgb_entry = tk.Entry(
+            grid_frame,
+            textvariable=rgb_var,
+            width=20,
+            state="disabled",
+            disabledforeground="black",
+        )
         rgb_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(rgb_var.get())
@@ -61,7 +73,13 @@ class ColorInfoDialog(tk.Toplevel):
         # Hex information
         tk.Label(grid_frame, text="Hex:").grid(row=2, column=0, sticky="e", padx=5, pady=2)
         hex_var = tk.StringVar(value=rgb_hex)
-        hex_entry = tk.Entry(grid_frame, textvariable=hex_var, width=20, state="readonly")
+        hex_entry = tk.Entry(
+            grid_frame,
+            textvariable=hex_var,
+            width=20,
+            state="disabled",
+            disabledforeground="black",
+        )
         hex_entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
         tk.Button(grid_frame, text="Copy",
                   command=lambda: pyperclip.copy(hex_var.get())
