@@ -104,16 +104,17 @@ class ImageViewer(tk.Tk):
         self.context_menu = tk.Menu(self, tearoff=0)
         self.context_menu_visible = False
         self.create_context_menu()
+        self.context_menu.bind("<Unmap>", self.on_context_menu_unmap)
 
         # Bind mouse events
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
         self.canvas.bind("<Button-3>", self.show_context_menu)  # Right-click
-        self.bind("<Button-1>", self.hide_context_menu, add="+")
-        self.bind("<Button-2>", self.hide_context_menu, add="+")
-        self.bind("<Escape>", self.hide_context_menu, add="+")
-        self.bind("<FocusOut>", self.hide_context_menu, add="+")
+        self.bind_all("<Button-1>", self.hide_context_menu, add="+")
+        self.bind_all("<Button-2>", self.hide_context_menu, add="+")
+        self.bind_all("<Escape>", self.hide_context_menu, add="+")
+        self.bind_all("<FocusOut>", self.hide_context_menu, add="+")
 
         # Keyboard shortcuts
         self.bind("<Control-v>", lambda event: self.load_image_from_clipboard())
@@ -167,13 +168,18 @@ class ImageViewer(tk.Tk):
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
-            self.context_menu_visible = False
+
+    def on_context_menu_unmap(self, event=None):
+        self.context_menu_visible = False
 
     def hide_context_menu(self, event=None):
-        if not self.context_menu_visible:
+        if not self.context_menu.winfo_ismapped():
             return None
-        widget = getattr(event, "widget", None)
-        if isinstance(widget, tk.Menu):
+        if event is not None and hasattr(event, "x_root") and hasattr(event, "y_root"):
+            widget = self.winfo_containing(event.x_root, event.y_root)
+            if isinstance(widget, tk.Menu):
+                return None
+        elif isinstance(getattr(event, "widget", None), tk.Menu):
             return None
         self.context_menu.unpost()
         self.context_menu_visible = False
