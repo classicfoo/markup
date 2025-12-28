@@ -94,9 +94,6 @@ class ImageViewer(tk.Tk):
         super().__init__()
         self.title("Screenshot Markup")
 
-        if sys.platform == "win32":
-            self.tk.call("tk", "scaling", 1.0)
-
         # Add undo/redo stacks
         self.undo_stack = []
         self.redo_stack = []
