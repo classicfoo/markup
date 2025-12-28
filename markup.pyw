@@ -14,7 +14,6 @@ class ColorInfoDialog(tk.Toplevel):
         
         # Make dialog modal
         self.transient(parent)
-        self.grab_set()
         
         # Convert RGB to hex
         rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
@@ -71,6 +70,8 @@ class ColorInfoDialog(tk.Toplevel):
         
         # Make dialog non-resizable
         self.resizable(False, False)
+        self.wait_visibility()
+        self.grab_set()
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
