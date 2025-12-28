@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
 import sys
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
@@ -353,8 +353,16 @@ class ImageViewer(tk.Tk):
 # Existing functions
 def get_image_from_clipboard():
     if win32clipboard is None:
-        print("Clipboard image not supported on this platform.")
+        data = ImageGrab.grabclipboard()
+        if isinstance(data, Image.Image):
+            return data
+        if isinstance(data, list) and data:
+            try:
+                return Image.open(data[0])
+            except (OSError, FileNotFoundError):
+                return None
         return None
+
     win32clipboard.OpenClipboard()
     try:
         # Check if the clipboard contains an image format
@@ -362,9 +370,7 @@ def get_image_from_clipboard():
             data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
             image = Image.open(BytesIO(data))
             return image
-        else:
-            print("No image in clipboard")
-            return None
+        return None
     finally:
         win32clipboard.CloseClipboard()
 
