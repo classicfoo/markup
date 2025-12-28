@@ -2,10 +2,14 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
 import sys
-import win32clipboard
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
+
+if sys.platform == "win32":
+    import win32clipboard
+else:
+    win32clipboard = None
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -348,6 +352,9 @@ class ImageViewer(tk.Tk):
 
 # Existing functions
 def get_image_from_clipboard():
+    if win32clipboard is None:
+        print("Clipboard image not supported on this platform.")
+        return None
     win32clipboard.OpenClipboard()
     try:
         # Check if the clipboard contains an image format
@@ -394,6 +401,12 @@ def add_border(image, border=1, color='lightgrey'):
     return image_with_border
 
 def copy_to_clipboard(image):
+    if win32clipboard is None:
+        messagebox.showinfo(
+            "Screenshot Markup",
+            "Copying images to the clipboard is only supported on Windows.",
+        )
+        return
     output = BytesIO()
     image.convert('RGB').save(output, 'BMP')
     data = output.getvalue()[14:]  # Remove the 14-byte BMP header
