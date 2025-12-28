@@ -1,11 +1,15 @@
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
 import sys
-import win32clipboard
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
+
+if sys.platform == "win32":
+    import win32clipboard
+else:
+    win32clipboard = None
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -14,7 +18,6 @@ class ColorInfoDialog(tk.Toplevel):
         
         # Make dialog modal
         self.transient(parent)
-        self.grab_set()
         
         # Convert RGB to hex
         rgb_hex = '#{:02x}{:02x}{:02x}'.format(*color_rgb)
@@ -71,6 +74,8 @@ class ColorInfoDialog(tk.Toplevel):
         
         # Make dialog non-resizable
         self.resizable(False, False)
+        self.wait_visibility()
+        self.grab_set()
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
@@ -347,6 +352,17 @@ class ImageViewer(tk.Tk):
 
 # Existing functions
 def get_image_from_clipboard():
+    if win32clipboard is None:
+        data = ImageGrab.grabclipboard()
+        if isinstance(data, Image.Image):
+            return data
+        if isinstance(data, list) and data:
+            try:
+                return Image.open(data[0])
+            except (OSError, FileNotFoundError):
+                return None
+        return None
+
     win32clipboard.OpenClipboard()
     try:
         # Check if the clipboard contains an image format
@@ -354,9 +370,7 @@ def get_image_from_clipboard():
             data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
             image = Image.open(BytesIO(data))
             return image
-        else:
-            print("No image in clipboard")
-            return None
+        return None
     finally:
         win32clipboard.CloseClipboard()
 
@@ -393,6 +407,12 @@ def add_border(image, border=1, color='lightgrey'):
     return image_with_border
 
 def copy_to_clipboard(image):
+    if win32clipboard is None:
+        messagebox.showinfo(
+            "Screenshot Markup",
+            "Copying images to the clipboard is only supported on Windows.",
+        )
+        return
     output = BytesIO()
     image.convert('RGB').save(output, 'BMP')
     data = output.getvalue()[14:]  # Remove the 14-byte BMP header
