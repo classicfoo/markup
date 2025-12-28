@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
+import os
 import sys
 import shutil
 import subprocess
+import tempfile
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
@@ -145,7 +147,12 @@ class ImageViewer(tk.Tk):
             label="Tools",  # Changed from "Drawing Mode"
             menu=self.tools_submenu
         )
-        
+
+        self.context_menu.add_command(
+            label="New Window",
+            command=self.open_new_window
+        )
+
         # Add separator
         self.context_menu.add_separator()
         
@@ -155,6 +162,26 @@ class ImageViewer(tk.Tk):
             variable=self.show_shadow,
             command=self.update_image
         )
+
+    def open_new_window(self):
+        image_path = None
+        if self.final_image is not None:
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            temp_file.close()
+            self.final_image.save(temp_file.name, "PNG")
+            image_path = temp_file.name
+
+        script_path = os.path.abspath(sys.argv[0])
+        try:
+            if image_path:
+                subprocess.Popen([sys.executable, script_path, image_path])
+            else:
+                subprocess.Popen([sys.executable, script_path])
+        except Exception as exc:
+            messagebox.showerror(
+                "Screenshot Markup",
+                f"Failed to open a new window: {exc}",
+            )
 
     def show_context_menu(self, event):
         try:
@@ -275,11 +302,11 @@ class ImageViewer(tk.Tk):
             copy_to_clipboard(self.final_image)
 
     def load_image(self, image_path):
-        # Try to get image from clipboard
-        img = get_image_from_clipboard()
-        if img is None and image_path is not None:
-            # Load the image from file
+        img = None
+        if image_path is not None:
             img = Image.open(image_path)
+        if img is None:
+            img = get_image_from_clipboard()
         self.original_image = img
     
     def load_image_from_clipboard(self):
