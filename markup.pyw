@@ -102,6 +102,7 @@ class ImageViewer(tk.Tk):
 
         # Create context menu
         self.context_menu = tk.Menu(self, tearoff=0)
+        self.context_menu_visible = False
         self.create_context_menu()
 
         # Bind mouse events
@@ -109,6 +110,10 @@ class ImageViewer(tk.Tk):
         self.canvas.bind("<B1-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
         self.canvas.bind("<Button-3>", self.show_context_menu)  # Right-click
+        self.bind("<Button-1>", self.hide_context_menu, add="+")
+        self.bind("<Button-2>", self.hide_context_menu, add="+")
+        self.bind("<Escape>", self.hide_context_menu, add="+")
+        self.bind("<FocusOut>", self.hide_context_menu, add="+")
 
         # Keyboard shortcuts
         self.bind("<Control-v>", lambda event: self.load_image_from_clipboard())
@@ -158,9 +163,23 @@ class ImageViewer(tk.Tk):
 
     def show_context_menu(self, event):
         try:
+            self.context_menu_visible = True
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
+            self.context_menu_visible = False
+
+    def hide_context_menu(self, event=None):
+        if not self.context_menu_visible:
+            return None
+        widget = getattr(event, "widget", None)
+        if isinstance(widget, tk.Menu):
+            return None
+        self.context_menu.unpost()
+        self.context_menu_visible = False
+        if event is not None and hasattr(event, "num"):
+            return "break"
+        return None
 
     def update_image(self):
         if self.original_image is not None:
