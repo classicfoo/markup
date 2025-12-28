@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
 import sys
+import ctypes
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
@@ -10,6 +11,17 @@ if sys.platform == "win32":
     import win32clipboard
 else:
     win32clipboard = None
+
+def enable_windows_dpi_awareness():
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -81,6 +93,9 @@ class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
         self.title("Screenshot Markup")
+
+        if sys.platform == "win32":
+            self.tk.call("tk", "scaling", 1.0)
 
         # Add undo/redo stacks
         self.undo_stack = []
@@ -424,6 +439,7 @@ def copy_to_clipboard(image):
     win32clipboard.CloseClipboard()
 
 def main(image_path=None):
+    enable_windows_dpi_awareness()
     app = ImageViewer(image_path)
     app.mainloop()
 
