@@ -2,14 +2,12 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
 import sys
+import shutil
+import subprocess
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
 
-if sys.platform == "win32":
-    import win32clipboard
-else:
-    win32clipboard = None
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -267,10 +265,10 @@ class ImageViewer(tk.Tk):
 
     def save_image(self):
         if self.final_image is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
+            file_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
             if file_path:
                 # Convert the image to RGB mode before saving
-                self.final_image.convert('RGB').save(file_path, "JPEG")
+                self.final_image.convert('RGB').save(file_path, "PNG")
 
     def copy_image(self, event):
         if self.final_image is not None:
@@ -352,27 +350,15 @@ class ImageViewer(tk.Tk):
 
 # Existing functions
 def get_image_from_clipboard():
-    if win32clipboard is None:
-        data = ImageGrab.grabclipboard()
-        if isinstance(data, Image.Image):
-            return data
-        if isinstance(data, list) and data:
-            try:
-                return Image.open(data[0])
-            except (OSError, FileNotFoundError):
-                return None
-        return None
-
-    win32clipboard.OpenClipboard()
-    try:
-        # Check if the clipboard contains an image format
-        if win32clipboard.IsClipboardFormatAvailable(win32clipboard.CF_DIB):
-            data = win32clipboard.GetClipboardData(win32clipboard.CF_DIB)
-            image = Image.open(BytesIO(data))
-            return image
-        return None
-    finally:
-        win32clipboard.CloseClipboard()
+    data = ImageGrab.grabclipboard()
+    if isinstance(data, Image.Image):
+        return data
+    if isinstance(data, list) and data:
+        try:
+            return Image.open(data[0])
+        except (OSError, FileNotFoundError):
+            return None
+    return None
 
 
 def add_shadow(image, offset=(13, 13), background_color='white', shadow_color='grey', border=20, blur_radius=8):
@@ -407,21 +393,36 @@ def add_border(image, border=1, color='lightgrey'):
     return image_with_border
 
 def copy_to_clipboard(image):
-    if win32clipboard is None:
-        messagebox.showinfo(
-            "Screenshot Markup",
-            "Copying images to the clipboard is only supported on Windows.",
-        )
-        return
-    output = BytesIO()
-    image.convert('RGB').save(output, 'BMP')
-    data = output.getvalue()[14:]  # Remove the 14-byte BMP header
-    output.close()
+    if sys.platform.startswith("linux"):
+        output = BytesIO()
+        image.convert("RGB").save(output, "PNG")
+        data = output.getvalue()
+        output.close()
 
-    win32clipboard.OpenClipboard()
-    win32clipboard.EmptyClipboard()
-    win32clipboard.SetClipboardData(win32clipboard.CF_DIB, data)
-    win32clipboard.CloseClipboard()
+        if shutil.which("wl-copy"):
+            command = ["wl-copy", "--type", "image/png"]
+        elif shutil.which("xclip"):
+            command = ["xclip", "-selection", "clipboard", "-t", "image/png"]
+        else:
+            messagebox.showinfo(
+                "Screenshot Markup",
+                "Install wl-copy or xclip to copy images to the clipboard.",
+            )
+            return
+
+        try:
+            subprocess.run(command, input=data, check=True)
+        except subprocess.CalledProcessError as exc:
+            messagebox.showerror(
+                "Screenshot Markup",
+                f"Failed to copy image to the clipboard: {exc}",
+            )
+        return
+
+    messagebox.showinfo(
+        "Screenshot Markup",
+        "Copying images to the clipboard is only supported on Linux.",
+    )
 
 def main(image_path=None):
     app = ImageViewer(image_path)
