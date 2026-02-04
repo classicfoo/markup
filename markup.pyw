@@ -226,7 +226,6 @@ class OCRResultDialog(tk.Toplevel):
             selection = ""
         self.selection_count_var.set(f"Selected: {len(selection)}")
 
-
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
