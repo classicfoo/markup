@@ -11,6 +11,7 @@ A Windows desktop app for quickly marking up screenshots with highlight, redacti
 - **Redaction Tool**: Draw solid black rectangles.
 - **Color Picker**: Inspect pixel position, RGB, and hex values.
 - **Text Tool**: Add, drag, and edit text overlays on top of images.
+- **OCR Tool**: Select a region and extract text with Tesseract.
 
 ### Editing
 - Undo/redo support (up to 20 states)
@@ -54,7 +55,10 @@ A Windows desktop app for quickly marking up screenshots with highlight, redacti
   - Pillow >= 10.0.0
   - pywin32 >= 306
   - pyperclip >= 1.8.2
+  - pytesseract >= 0.3.10
   - tkinter (included with Python)
+- OCR engine:
+  - Tesseract OCR (installed separately)
 
 ## Installation
 
@@ -69,6 +73,16 @@ A Windows desktop app for quickly marking up screenshots with highlight, redacti
    ```bash
    python markup.pyw
    ```
+
+## OCR Setup (Windows)
+
+1. Install Tesseract OCR.
+2. If OCR fails with "Tesseract OCR engine not found", either:
+   - Add the Tesseract install folder to your `PATH`, then restart the app, or
+   - Set `TESSERACT_CMD` to the full `tesseract.exe` path, for example:
+     ```
+     C:\Program Files\Tesseract-OCR\tesseract.exe
+     ```
 
 ## License
 

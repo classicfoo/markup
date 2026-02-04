@@ -5,10 +5,45 @@ import sys
 import os
 import subprocess
 import json
+import shutil
 import win32clipboard
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
+
+try:
+    import pytesseract
+except Exception:
+    pytesseract = None
+
+
+def resolve_tesseract_cmd():
+    env_cmd = os.environ.get("TESSERACT_CMD")
+    if env_cmd and os.path.isfile(env_cmd):
+        return env_cmd
+    which_cmd = shutil.which("tesseract")
+    if which_cmd:
+        return which_cmd
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def configure_tesseract():
+    if pytesseract is None:
+        return None
+    cmd = resolve_tesseract_cmd()
+    if cmd:
+        pytesseract.pytesseract.tesseract_cmd = cmd
+    return cmd
+
+
+_TESSERACT_CMD = configure_tesseract()
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -139,6 +174,59 @@ class MultilineTextDialog(tk.Toplevel):
         event.widget.invoke()
         return "break"
 
+
+class OCRResultDialog(tk.Toplevel):
+    def __init__(self, parent, text):
+        super().__init__(parent)
+        self.title("OCR Result")
+
+        self.transient(parent)
+
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill="both", expand=True)
+
+        self.text_widget = tk.Text(text_frame, wrap="word", height=10, width=60)
+        self.text_widget.insert("1.0", text)
+        self.text_widget.pack(side="left", fill="both", expand=True)
+        self.text_widget.bind("<<Selection>>", self.update_selection_count)
+        self.text_widget.bind("<KeyRelease>", self.update_selection_count)
+        self.text_widget.bind("<ButtonRelease-1>", self.update_selection_count)
+
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.text_widget.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.text_widget.configure(yscrollcommand=scrollbar.set)
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x", pady=(8, 0))
+
+        ttk.Button(
+            button_frame,
+            text="Copy",
+            command=lambda: pyperclip.copy(self.text_widget.get("1.0", "end").rstrip())
+        ).pack(side="left")
+        self.selection_count_var = tk.StringVar(value="Selected: 0")
+        ttk.Label(
+            button_frame,
+            textvariable=self.selection_count_var
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(button_frame, text="Close", command=self.destroy).pack(side="right")
+
+        self.geometry(f"+{parent.winfo_rootx() + 60}+{parent.winfo_rooty() + 60}")
+        self.resizable(True, True)
+        self.wait_visibility()
+        self.grab_set()
+
+    def update_selection_count(self, event=None):
+        try:
+            selection = self.text_widget.get("sel.first", "sel.last")
+        except tk.TclError:
+            selection = ""
+        self.selection_count_var.set(f"Selected: {len(selection)}")
+
+
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
@@ -223,6 +311,11 @@ class ImageViewer(tk.Tk):
             label="Text",
             variable=self.drawing_mode,
             value="text"
+        )
+        self.tools_submenu.add_radiobutton(
+            label="OCR",
+            variable=self.drawing_mode,
+            value="ocr"
         )
         
         self.context_menu.add_cascade(
@@ -466,6 +559,9 @@ class ImageViewer(tk.Tk):
         if self.drawing_mode.get() == "highlighter":
             outline_color = "yellow"
             fill_color = "yellow"
+        elif self.drawing_mode.get() == "ocr":
+            outline_color = "cyan"
+            fill_color = ""
         else:  # redaction mode
             outline_color = "black"
             fill_color = "black"
@@ -505,11 +601,15 @@ class ImageViewer(tk.Tk):
             if self.drawing_mode.get() == "highlighter":
                 outline_color = "yellow"
                 fill_color = "yellow"
+            elif self.drawing_mode.get() == "ocr":
+                outline_color = "cyan"
+                fill_color = ""
             else:  # redaction mode
                 outline_color = "black"
                 fill_color = "black"
-                
-            self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple="gray50")
+
+            stipple = "gray50" if self.drawing_mode.get() != "ocr" else ""
+            self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple=stipple)
 
     def on_button_release(self, event):
         if self.dragging_text_id is not None:
@@ -519,9 +619,6 @@ class ImageViewer(tk.Tk):
             return
 
         if self.rect and self.original_image is not None:
-            # Save current state before making changes
-            self.save_state()
-            
             end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             
             # Only subtract border offset if shadow is enabled
@@ -530,6 +627,11 @@ class ImageViewer(tk.Tk):
             # Determine the smallest and largest x and y coordinates
             x0, y0 = min(self.start_x, end_x) - offset, min(self.start_y, end_y) - offset
             x1, y1 = max(self.start_x, end_x) - offset, max(self.start_y, end_y) - offset
+            if self.drawing_mode.get() == "ocr":
+                self.canvas.delete(self.rect)
+                self.rect = None
+                self.run_ocr(x0, y0, x1, y1)
+                return
 
             overlay = Image.new('RGBA', self.original_image.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
@@ -538,10 +640,50 @@ class ImageViewer(tk.Tk):
                 color = (255, 255, 0, 128)  # Yellow, 50% opacity
             else:  # redaction mode
                 color = (0, 0, 0, 255)  # Black, 100% opacity
-                
+            # Save current state before making changes
+            self.save_state()
             draw.rectangle([x0, y0, x1, y1], fill=color)
             self.original_image = Image.alpha_composite(self.original_image.convert('RGBA'), overlay)
             self.update_image()
+            self.canvas.delete(self.rect)
+            self.rect = None
+
+    def run_ocr(self, x0, y0, x1, y1):
+        if pytesseract is None:
+            messagebox.showerror(
+                "OCR Unavailable",
+                "pytesseract is not installed. Install it with: pip install pytesseract\n"
+                "You also need the Tesseract OCR engine installed on your system."
+            )
+            return
+        if _TESSERACT_CMD is None and shutil.which("tesseract") is None:
+            messagebox.showerror(
+                "OCR Unavailable",
+                "Tesseract OCR engine not found.\n\n"
+                "Quick fix: set the environment variable TESSERACT_CMD to your tesseract.exe path, "
+                "for example:\n"
+                "C:\\Program Files\\Tesseract-OCR\\tesseract.exe\n\n"
+                "Or add the Tesseract install folder to your PATH and restart the app."
+            )
+            return
+        if self.original_image is None:
+            return
+
+        img_w, img_h = self.original_image.size
+        left = max(0, min(int(x0), img_w))
+        right = max(0, min(int(x1), img_w))
+        top = max(0, min(int(y0), img_h))
+        bottom = max(0, min(int(y1), img_h))
+        if right - left < 2 or bottom - top < 2:
+            return
+
+        crop = self.original_image.crop((left, top, right, bottom)).convert("RGB")
+        try:
+            text = pytesseract.image_to_string(crop)
+        except Exception as error:
+            messagebox.showerror("OCR Failed", f"Failed to run OCR: {error}")
+            return
+        OCRResultDialog(self, text.strip())
 
     def save_image(self):
         export_image = self.build_export_image()
