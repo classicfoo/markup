@@ -1,13 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
-from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab
+from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageGrab, ImageFont
 import os
 import sys
 import shutil
 import subprocess
 import tempfile
 from io import BytesIO
-from tkinter import filedialog, messagebox, colorchooser
+from tkinter import filedialog, messagebox, colorchooser, simpledialog
 import pyperclip  # You'll need to pip install pyperclip
 
 
@@ -97,6 +97,15 @@ class ImageViewer(tk.Tk):
         self.rect = None
         self.original_image = None
         self.final_image = None
+        self.text_overlays = []
+        self.next_text_id = 1
+        self.dragging_text_id = None
+        self.drag_text_dx = 0
+        self.drag_text_dy = 0
+        self.drag_state_saved = False
+        self.default_text_font = "Arial"
+        self.default_text_size = 14
+        self.default_text_color = "red"
 
         # Setting up the canvas
         self.canvas = tk.Canvas(self, cursor="cross")
@@ -110,6 +119,7 @@ class ImageViewer(tk.Tk):
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
+        self.canvas.bind("<Double-Button-1>", self.on_double_click)
         self.canvas.bind("<Button-3>", self.show_context_menu)  # Right-click
 
         # Keyboard shortcuts
@@ -141,6 +151,11 @@ class ImageViewer(tk.Tk):
             label="Color Picker",
             variable=self.drawing_mode,
             value="color_picker"
+        )
+        self.tools_submenu.add_radiobutton(
+            label="Text",
+            variable=self.drawing_mode,
+            value="text"
         )
         
         self.context_menu.add_cascade(
@@ -195,12 +210,15 @@ class ImageViewer(tk.Tk):
             
             if self.show_shadow.get():
                 self.final_image = add_shadow(self.final_image)
+
+            self.draw_text_on_image(self.final_image)
             
             self.display_image = ImageTk.PhotoImage(self.final_image)
 
             # Update canvas with the new image
             self.canvas.delete("all")
             self.canvas.create_image(0, 0, anchor="nw", image=self.display_image)
+            self.render_text_overlays()
             self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
 
             # Resize the window to fit the final image
@@ -208,27 +226,133 @@ class ImageViewer(tk.Tk):
             window_height = self.final_image.height
             self.geometry(f"{window_width}x{window_height}")
 
+    def get_shadow_offset(self):
+        return 20 if self.show_shadow.get() else 0
+
+    def get_image_coordinates(self, canvas_x, canvas_y):
+        offset = self.get_shadow_offset()
+        return canvas_x - offset, canvas_y - offset
+
+    def to_canvas_coordinates(self, image_x, image_y):
+        offset = self.get_shadow_offset()
+        return image_x + offset, image_y + offset
+
+    def draw_text_on_image(self, target_image):
+        draw = ImageDraw.Draw(target_image)
+        offset = self.get_shadow_offset()
+        font = load_default_text_font(self.default_text_size)
+        for overlay in self.text_overlays:
+            draw.text(
+                (overlay["x"] + offset, overlay["y"] + offset),
+                overlay["text"],
+                fill=overlay["color"],
+                font=font
+            )
+
+    def render_text_overlays(self):
+        for overlay in self.text_overlays:
+            canvas_x, canvas_y = self.to_canvas_coordinates(overlay["x"], overlay["y"])
+            overlay["canvas_item"] = self.canvas.create_text(
+                canvas_x,
+                canvas_y,
+                anchor="nw",
+                text=overlay["text"],
+                fill=overlay["color"],
+                font=(overlay["font_family"], overlay["font_size"]),
+                tags=("text_overlay", f"text_overlay_{overlay['id']}")
+            )
+
+    def get_overlay_by_canvas_item(self, canvas_item):
+        for overlay in self.text_overlays:
+            if overlay.get("canvas_item") == canvas_item:
+                return overlay
+        return None
+
+    def get_overlay_at_event(self, event):
+        canvas_x = self.canvas.canvasx(event.x)
+        canvas_y = self.canvas.canvasy(event.y)
+        for canvas_item in reversed(self.canvas.find_overlapping(canvas_x, canvas_y, canvas_x, canvas_y)):
+            if "text_overlay" in self.canvas.gettags(canvas_item):
+                return self.get_overlay_by_canvas_item(canvas_item)
+        return None
+
+    def add_text_overlay(self, image_x, image_y):
+        text_value = simpledialog.askstring("Add Text", "Enter text:", parent=self)
+        if text_value is None:
+            return
+
+        text_value = text_value.strip()
+        if not text_value:
+            return
+
+        self.save_state()
+        self.text_overlays.append({
+            "id": self.next_text_id,
+            "x": image_x,
+            "y": image_y,
+            "text": text_value,
+            "font_family": self.default_text_font,
+            "font_size": self.default_text_size,
+            "color": self.default_text_color
+        })
+        self.next_text_id += 1
+        self.update_image()
+
+    def edit_text_overlay(self, overlay):
+        text_value = simpledialog.askstring("Edit Text", "Update text:", initialvalue=overlay["text"], parent=self)
+        if text_value is None:
+            return
+
+        text_value = text_value.strip()
+        if not text_value or text_value == overlay["text"]:
+            return
+
+        self.save_state()
+        overlay["text"] = text_value
+        self.update_image()
+
+    def on_double_click(self, event):
+        if self.original_image is None:
+            return
+
+        overlay = self.get_overlay_at_event(event)
+        if overlay is not None:
+            self.edit_text_overlay(overlay)
+
     def on_button_press(self, event):
+        if self.original_image is None:
+            return
+
+        selected_overlay = self.get_overlay_at_event(event)
+        if selected_overlay is not None:
+            self.dragging_text_id = selected_overlay["id"]
+            display_x, display_y = self.to_canvas_coordinates(selected_overlay["x"], selected_overlay["y"])
+            self.drag_text_dx = self.canvas.canvasx(event.x) - display_x
+            self.drag_text_dy = self.canvas.canvasy(event.y) - display_y
+            self.drag_state_saved = False
+            return
+
+        if self.drawing_mode.get() == "text":
+            image_x, image_y = self.get_image_coordinates(self.canvas.canvasx(event.x), self.canvas.canvasy(event.y))
+            self.add_text_overlay(image_x, image_y)
+            return
+
         if self.drawing_mode.get() == "color_picker":
-            if self.original_image is not None:
-                # Get coordinates relative to the image
-                x = int(self.canvas.canvasx(event.x))
-                y = int(self.canvas.canvasy(event.y))
-                
-                # Adjust coordinates if shadow is enabled
-                offset = 20 if self.show_shadow.get() else 0
-                x -= offset
-                y -= offset
-                
-                # Get color at clicked position
-                try:
-                    color = self.original_image.getpixel((x, y))
-                    if len(color) > 3:  # If RGBA, convert to RGB
-                        color = color[:3]
-                    ColorInfoDialog(self, color, x, y)
-                except IndexError:
-                    # Clicked outside image bounds
-                    pass
+            # Get coordinates relative to the image
+            x = int(self.canvas.canvasx(event.x))
+            y = int(self.canvas.canvasy(event.y))
+            x, y = self.get_image_coordinates(x, y)
+            x, y = int(x), int(y)
+            
+            # Get color at clicked position
+            try:
+                color = self.original_image.getpixel((x, y))
+                if len(color) > 3:  # If RGBA, convert to RGB
+                    color = color[:3]
+                ColorInfoDialog(self, color, x, y)
+            except IndexError:
+                # Clicked outside image bounds
+                pass
             return
             
         self.start_x = self.canvas.canvasx(event.x)
@@ -249,6 +373,25 @@ class ImageViewer(tk.Tk):
         )
 
     def on_move_press(self, event):
+        if self.dragging_text_id is not None:
+            overlay = next((item for item in self.text_overlays if item["id"] == self.dragging_text_id), None)
+            if overlay is None:
+                return
+
+            if not self.drag_state_saved:
+                self.save_state()
+                self.drag_state_saved = True
+
+            curX, curY = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
+            new_canvas_x = curX - self.drag_text_dx
+            new_canvas_y = curY - self.drag_text_dy
+            image_x, image_y = self.get_image_coordinates(new_canvas_x, new_canvas_y)
+            overlay["x"] = image_x
+            overlay["y"] = image_y
+            if overlay.get("canvas_item"):
+                self.canvas.coords(overlay["canvas_item"], new_canvas_x, new_canvas_y)
+            return
+
         curX, curY = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         if self.rect:
             x0, y0 = min(self.start_x, curX), min(self.start_y, curY)
@@ -265,6 +408,12 @@ class ImageViewer(tk.Tk):
             self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple="gray50")
 
     def on_button_release(self, event):
+        if self.dragging_text_id is not None:
+            self.dragging_text_id = None
+            self.drag_state_saved = False
+            self.update_image()
+            return
+
         if self.rect and self.original_image is not None:
             # Save current state before making changes
             self.save_state()
@@ -308,6 +457,8 @@ class ImageViewer(tk.Tk):
         if img is None:
             img = get_image_from_clipboard()
         self.original_image = img
+        self.text_overlays.clear()
+        self.next_text_id = 1
     
     def load_image_from_clipboard(self):
         img = get_image_from_clipboard()
@@ -317,6 +468,8 @@ class ImageViewer(tk.Tk):
             self.redo_stack.clear()
             
             self.original_image = img
+            self.text_overlays.clear()
+            self.next_text_id = 1
             self.update_image()
         else:
             print("No image found in clipboard.")
@@ -329,7 +482,11 @@ class ImageViewer(tk.Tk):
             self.redo_stack.clear()
             
             # Save a copy of the current state
-            self.undo_stack.append(self.original_image.copy())
+            self.undo_stack.append({
+                "image": self.original_image.copy(),
+                "text_overlays": [self.clone_text_overlay(item) for item in self.text_overlays],
+                "next_text_id": self.next_text_id
+            })
             
             # Limit stack size
             if len(self.undo_stack) > self.max_undos:
@@ -339,21 +496,46 @@ class ImageViewer(tk.Tk):
         """Restore previous state"""
         if self.undo_stack and self.original_image:
             # Save current state to redo stack
-            self.redo_stack.append(self.original_image.copy())
+            self.redo_stack.append({
+                "image": self.original_image.copy(),
+                "text_overlays": [self.clone_text_overlay(item) for item in self.text_overlays],
+                "next_text_id": self.next_text_id
+            })
             
             # Restore previous state
-            self.original_image = self.undo_stack.pop()
+            previous_state = self.undo_stack.pop()
+            self.original_image = previous_state["image"]
+            self.text_overlays = [self.clone_text_overlay(item) for item in previous_state["text_overlays"]]
+            self.next_text_id = previous_state["next_text_id"]
             self.update_image()
 
     def redo(self, event):
         """Restore previously undone state"""
         if self.redo_stack and self.original_image:
             # Save current state to undo stack
-            self.undo_stack.append(self.original_image.copy())
+            self.undo_stack.append({
+                "image": self.original_image.copy(),
+                "text_overlays": [self.clone_text_overlay(item) for item in self.text_overlays],
+                "next_text_id": self.next_text_id
+            })
             
             # Restore previously undone state
-            self.original_image = self.redo_stack.pop()
+            next_state = self.redo_stack.pop()
+            self.original_image = next_state["image"]
+            self.text_overlays = [self.clone_text_overlay(item) for item in next_state["text_overlays"]]
+            self.next_text_id = next_state["next_text_id"]
             self.update_image()
+
+    def clone_text_overlay(self, overlay):
+        return {
+            "id": overlay["id"],
+            "x": overlay["x"],
+            "y": overlay["y"],
+            "text": overlay["text"],
+            "font_family": overlay["font_family"],
+            "font_size": overlay["font_size"],
+            "color": overlay["color"]
+        }
 
     def load_image_from_file(self):
         """Load an image from a file using a file dialog"""
@@ -371,9 +553,19 @@ class ImageViewer(tk.Tk):
                 
                 # Load and display the image
                 self.original_image = Image.open(file_path)
+                self.text_overlays.clear()
+                self.next_text_id = 1
                 self.update_image()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {str(e)}")
+
+def load_default_text_font(size):
+    for font_name in ("arial.ttf", "segoeui.ttf", "DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(font_name, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 # Existing functions
 def get_image_from_clipboard():
