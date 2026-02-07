@@ -114,6 +114,7 @@ class ImageViewer(tk.Tk):
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
         self.canvas.bind("<ButtonRelease-1>", self.on_button_release)
+        self.canvas.bind("<Motion>", self.on_mouse_move)
         self.canvas.bind("<Double-Button-1>", self.on_double_click)
         self.canvas.bind("<Button-3>", self.show_context_menu)  # Right-click
 
@@ -296,6 +297,18 @@ class ImageViewer(tk.Tk):
         overlay = self.get_overlay_at_event(event)
         if overlay is not None:
             self.edit_text_overlay(overlay)
+
+    def on_mouse_move(self, event):
+        if self.original_image is None:
+            self.canvas.configure(cursor="cross")
+            return
+
+        if self.dragging_text_id is not None:
+            self.canvas.configure(cursor="fleur")
+            return
+
+        overlay = self.get_overlay_at_event(event)
+        self.canvas.configure(cursor="fleur" if overlay is not None else "cross")
 
     def on_button_press(self, event):
         if self.original_image is None:
