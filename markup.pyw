@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageFont
 import sys
+import os
+import subprocess
 import win32clipboard
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser, simpledialog
@@ -125,6 +127,7 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-y>", self.redo)
         self.bind("<Control-l>", lambda event: self.load_image_from_file())
+        self.bind("<Control-n>", lambda event: self.open_new_window())
 
         if image_path:
             self.load_image(image_path)
@@ -159,6 +162,11 @@ class ImageViewer(tk.Tk):
             menu=self.tools_submenu
         )
         
+        self.context_menu.add_command(
+            label="Open New Window",
+            command=self.open_new_window
+        )
+        
         # Add separator
         self.context_menu.add_separator()
         
@@ -174,6 +182,17 @@ class ImageViewer(tk.Tk):
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
+
+    def open_new_window(self):
+        try:
+            if getattr(sys, "frozen", False):
+                command = [sys.executable]
+            else:
+                script_path = os.path.abspath(sys.argv[0])
+                command = [sys.executable, script_path]
+            subprocess.Popen(command)
+        except Exception as error:
+            messagebox.showerror("Error", f"Failed to open new window: {error}")
 
     def update_image(self):
         if self.original_image is not None:
