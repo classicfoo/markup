@@ -210,8 +210,6 @@ class ImageViewer(tk.Tk):
             
             if self.show_shadow.get():
                 self.final_image = add_shadow(self.final_image)
-
-            self.draw_text_on_image(self.final_image)
             
             self.display_image = ImageTk.PhotoImage(self.final_image)
 
@@ -240,14 +238,24 @@ class ImageViewer(tk.Tk):
     def draw_text_on_image(self, target_image):
         draw = ImageDraw.Draw(target_image)
         offset = self.get_shadow_offset()
-        font = load_default_text_font(self.default_text_size)
         for overlay in self.text_overlays:
+            font = load_default_text_font(overlay["font_size"])
             draw.text(
                 (overlay["x"] + offset, overlay["y"] + offset),
                 overlay["text"],
                 fill=overlay["color"],
                 font=font
             )
+
+    def build_export_image(self):
+        if self.original_image is None:
+            return None
+
+        export_image = self.original_image.copy()
+        if self.show_shadow.get():
+            export_image = add_shadow(export_image)
+        self.draw_text_on_image(export_image)
+        return export_image
 
     def render_text_overlays(self):
         for overlay in self.text_overlays:
@@ -440,15 +448,17 @@ class ImageViewer(tk.Tk):
             self.update_image()
 
     def save_image(self):
-        if self.final_image is not None:
+        export_image = self.build_export_image()
+        if export_image is not None:
             file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
             if file_path:
                 # Convert the image to RGB mode before saving
-                self.final_image.convert('RGB').save(file_path, "JPEG")
+                export_image.convert('RGB').save(file_path, "JPEG")
 
     def copy_image(self, event):
-        if self.final_image is not None:
-            copy_to_clipboard(self.final_image)
+        export_image = self.build_export_image()
+        if export_image is not None:
+            copy_to_clipboard(export_image)
 
     def load_image(self, image_path):
         img = None
