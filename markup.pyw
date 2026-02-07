@@ -130,6 +130,7 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-y>", self.redo)
         self.bind("<Control-l>", lambda event: self.load_image_from_file())
+        self.bind("<Control-n>", lambda event: self.open_new_window())
 
         if image_path:
             self.load_image(image_path)
@@ -168,7 +169,6 @@ class ImageViewer(tk.Tk):
             label="New Window",
             command=self.open_new_window
         )
-
         # Add separator
         self.context_menu.add_separator()
         
