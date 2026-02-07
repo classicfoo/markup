@@ -4,6 +4,7 @@ from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageFont
 import sys
 import os
 import subprocess
+import json
 import win32clipboard
 from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser, simpledialog
@@ -103,6 +104,9 @@ class ImageViewer(tk.Tk):
         self.default_text_font = "Arial"
         self.default_text_size = 14
         self.default_text_color = "red"
+        self.config_path = os.path.join(os.path.expanduser("~"), ".screenshot_markup_config.json")
+        self.default_output_format = "png"
+        self.load_preferences()
 
         # Setting up the canvas
         self.canvas = tk.Canvas(self, cursor="cross")
@@ -182,6 +186,29 @@ class ImageViewer(tk.Tk):
             self.context_menu.tk_popup(event.x_root, event.y_root)
         finally:
             self.context_menu.grab_release()
+
+    def normalize_output_format(self, file_format):
+        if isinstance(file_format, str) and file_format.lower() in ("jpg", "jpeg"):
+            return "jpg"
+        return "png"
+
+    def load_preferences(self):
+        if not os.path.exists(self.config_path):
+            return
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as config_file:
+                config = json.load(config_file)
+            self.default_output_format = self.normalize_output_format(config.get("last_output_format", "png"))
+        except Exception:
+            self.default_output_format = "png"
+
+    def save_preferences(self):
+        config = {"last_output_format": self.default_output_format}
+        try:
+            with open(self.config_path, "w", encoding="utf-8") as config_file:
+                json.dump(config, config_file, indent=2)
+        except Exception:
+            pass
 
     def open_new_window(self):
         try:
@@ -452,10 +479,32 @@ class ImageViewer(tk.Tk):
     def save_image(self):
         export_image = self.build_export_image()
         if export_image is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".jpg", filetypes=[("JPEG files", "*.jpg")])
+            default_extension = ".png" if self.default_output_format == "png" else ".jpg"
+            if self.default_output_format == "png":
+                file_types = [("PNG files", "*.png"), ("JPEG files", "*.jpg *.jpeg")]
+            else:
+                file_types = [("JPEG files", "*.jpg *.jpeg"), ("PNG files", "*.png")]
+
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=default_extension,
+                filetypes=file_types
+            )
             if file_path:
-                # Convert the image to RGB mode before saving
-                export_image.convert('RGB').save(file_path, "JPEG")
+                extension = os.path.splitext(file_path)[1].lower()
+                if extension in (".jpg", ".jpeg"):
+                    selected_format = "jpg"
+                elif extension == ".png":
+                    selected_format = "png"
+                else:
+                    selected_format = self.default_output_format
+
+                if selected_format == "jpg":
+                    export_image.convert('RGB').save(file_path, "JPEG")
+                else:
+                    export_image.save(file_path, "PNG")
+
+                self.default_output_format = selected_format
+                self.save_preferences()
 
     def copy_image(self, event):
         export_image = self.build_export_image()
