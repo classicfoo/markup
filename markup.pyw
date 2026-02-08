@@ -100,8 +100,14 @@ class MultilineTextDialog(tk.Toplevel):
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill="x", pady=(10, 0))
-        ttk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side="right")
-        ttk.Button(button_frame, text="OK", command=self.on_ok).pack(side="right", padx=(0, 8))
+        self.ok_button = ttk.Button(button_frame, text="OK", command=self.on_ok)
+        self.ok_button.pack(side="right")
+        self.cancel_button = ttk.Button(button_frame, text="Cancel", command=self.on_cancel)
+        self.cancel_button.pack(side="right", padx=(0, 8))
+        self.ok_button.bind("<Return>", lambda event: self.invoke_focused_button(event))
+        self.ok_button.bind("<KP_Enter>", lambda event: self.invoke_focused_button(event))
+        self.cancel_button.bind("<Return>", lambda event: self.invoke_focused_button(event))
+        self.cancel_button.bind("<KP_Enter>", lambda event: self.invoke_focused_button(event))
 
         self.bind("<Escape>", lambda event: self.on_cancel())
         self.bind("<Control-Return>", lambda event: self.on_ok())
@@ -118,6 +124,9 @@ class MultilineTextDialog(tk.Toplevel):
         self.destroy()
 
     def focus_next_widget(self, event):
+        if event.widget == self.text_input:
+            self.ok_button.focus_set()
+            return "break"
         next_widget = event.widget.tk_focusNext()
         if next_widget:
             next_widget.focus_set()
@@ -127,6 +136,10 @@ class MultilineTextDialog(tk.Toplevel):
         previous_widget = event.widget.tk_focusPrev()
         if previous_widget:
             previous_widget.focus_set()
+        return "break"
+
+    def invoke_focused_button(self, event):
+        event.widget.invoke()
         return "break"
 
 class ImageViewer(tk.Tk):
