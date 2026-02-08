@@ -92,6 +92,8 @@ class MultilineTextDialog(tk.Toplevel):
         self.text_input.pack(fill="both", expand=True)
         self.text_input.insert("1.0", initial_text)
         self.text_input.focus_set()
+        self.text_input.bind("<Tab>", self.focus_next_widget)
+        self.text_input.bind("<Shift-Tab>", self.focus_previous_widget)
 
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill="x", pady=(10, 0))
@@ -111,6 +113,18 @@ class MultilineTextDialog(tk.Toplevel):
     def on_cancel(self):
         self.result = None
         self.destroy()
+
+    def focus_next_widget(self, event):
+        next_widget = event.widget.tk_focusNext()
+        if next_widget:
+            next_widget.focus_set()
+        return "break"
+
+    def focus_previous_widget(self, event):
+        previous_widget = event.widget.tk_focusPrev()
+        if previous_widget:
+            previous_widget.focus_set()
+        return "break"
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
