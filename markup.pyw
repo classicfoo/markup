@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import json
 from io import BytesIO
-from tkinter import filedialog, messagebox, colorchooser, simpledialog
+from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
 
 
@@ -77,6 +77,43 @@ class ColorInfoDialog(tk.Toplevel):
         self.resizable(False, False)
         self.wait_visibility()
         self.grab_set()
+
+class MultilineTextDialog(tk.Toplevel):
+    def __init__(self, parent, title, prompt, initial_text=""):
+        super().__init__(parent)
+        self.result = None
+        self.title(title)
+        self.transient(parent)
+        self.grab_set()
+
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        ttk.Label(main_frame, text=prompt).pack(anchor="w", pady=(0, 6))
+
+        self.text_input = tk.Text(main_frame, width=48, height=6, wrap="word")
+        self.text_input.pack(fill="both", expand=True)
+        self.text_input.insert("1.0", initial_text)
+        self.text_input.focus_set()
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x", pady=(10, 0))
+        ttk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side="right")
+        ttk.Button(button_frame, text="OK", command=self.on_ok).pack(side="right", padx=(0, 8))
+
+        self.bind("<Escape>", lambda event: self.on_cancel())
+        self.bind("<Control-Return>", lambda event: self.on_ok())
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+
+        self.geometry(f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}")
+
+    def on_ok(self):
+        self.result = self.text_input.get("1.0", "end-1c")
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.destroy()
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
@@ -312,12 +349,11 @@ class ImageViewer(tk.Tk):
         return None
 
     def add_text_overlay(self, image_x, image_y):
-        text_value = simpledialog.askstring("Add Text", "Enter text:", parent=self)
+        text_value = self.show_multiline_text_dialog("Add Text", "Enter text:")
         if text_value is None:
             return
 
-        text_value = text_value.strip()
-        if not text_value:
+        if not text_value.strip():
             return
 
         self.save_state()
@@ -334,17 +370,21 @@ class ImageViewer(tk.Tk):
         self.update_image()
 
     def edit_text_overlay(self, overlay):
-        text_value = simpledialog.askstring("Edit Text", "Update text:", initialvalue=overlay["text"], parent=self)
+        text_value = self.show_multiline_text_dialog("Edit Text", "Update text:", overlay["text"])
         if text_value is None:
             return
 
-        text_value = text_value.strip()
-        if not text_value or text_value == overlay["text"]:
+        if not text_value.strip() or text_value == overlay["text"]:
             return
 
         self.save_state()
         overlay["text"] = text_value
         self.update_image()
+
+    def show_multiline_text_dialog(self, title, prompt, initial_text=""):
+        dialog = MultilineTextDialog(self, title, prompt, initial_text)
+        self.wait_window(dialog)
+        return dialog.result
 
     def on_double_click(self, event):
         if self.original_image is None:
