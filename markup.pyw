@@ -577,16 +577,22 @@ class ImageViewer(tk.Tk):
                 extension = os.path.splitext(file_path)[1].lower()
                 selected_type_value = selected_type.get().lower()
 
-                if extension in (".jpg", ".jpeg"):
+                # Treat the selected dialog file type as authoritative. Some Linux
+                # Tk dialogs can still append the default extension instead.
+                if "jpg" in selected_type_value or "jpeg" in selected_type_value:
+                    selected_format = "jpg"
+                    if extension not in (".jpg", ".jpeg"):
+                        root, _ = os.path.splitext(file_path)
+                        file_path = f"{root}.jpg" if extension else f"{file_path}.jpg"
+                elif "png" in selected_type_value:
+                    selected_format = "png"
+                    if extension != ".png":
+                        root, _ = os.path.splitext(file_path)
+                        file_path = f"{root}.png" if extension else f"{file_path}.png"
+                elif extension in (".jpg", ".jpeg"):
                     selected_format = "jpg"
                 elif extension == ".png":
                     selected_format = "png"
-                elif "jpg" in selected_type_value or "jpeg" in selected_type_value:
-                    selected_format = "jpg"
-                    file_path = f"{file_path}.jpg"
-                elif "png" in selected_type_value:
-                    selected_format = "png"
-                    file_path = f"{file_path}.png"
                 else:
                     selected_format = self.default_output_format
                     file_path = f"{file_path}{default_extension}"
