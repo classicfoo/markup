@@ -33,4 +33,7 @@ ENV/
 
 # Windows
 Thumbs.db
-desktop.ini 
+desktop.ini
+
+# Local icon assets directory (keep single icon.png tracked)
+icons/
