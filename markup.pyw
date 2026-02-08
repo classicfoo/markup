@@ -567,18 +567,29 @@ class ImageViewer(tk.Tk):
             else:
                 file_types = [("JPEG files", "*.jpg *.jpeg"), ("PNG files", "*.png")]
 
+            selected_type = tk.StringVar(value=default_extension)
             file_path = filedialog.asksaveasfilename(
                 defaultextension=default_extension,
-                filetypes=file_types
+                filetypes=file_types,
+                typevariable=selected_type
             )
             if file_path:
                 extension = os.path.splitext(file_path)[1].lower()
+                selected_type_value = selected_type.get().lower()
+
                 if extension in (".jpg", ".jpeg"):
                     selected_format = "jpg"
                 elif extension == ".png":
                     selected_format = "png"
+                elif "jpg" in selected_type_value or "jpeg" in selected_type_value:
+                    selected_format = "jpg"
+                    file_path = f"{file_path}.jpg"
+                elif "png" in selected_type_value:
+                    selected_format = "png"
+                    file_path = f"{file_path}.png"
                 else:
                     selected_format = self.default_output_format
+                    file_path = f"{file_path}{default_extension}"
 
                 if selected_format == "jpg":
                     export_image.convert('RGB').save(file_path, "JPEG")
