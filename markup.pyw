@@ -84,7 +84,6 @@ class MultilineTextDialog(tk.Toplevel):
         self.result = None
         self.title(title)
         self.transient(parent)
-        self.grab_set()
 
         main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(fill="both", expand=True)
@@ -113,7 +112,13 @@ class MultilineTextDialog(tk.Toplevel):
         self.bind("<Control-Return>", lambda event: self.on_ok())
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
 
+        self.resizable(True, True)
+        self.minsize(420, 220)
         self.geometry(f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}")
+        self.wait_visibility()
+        self.grab_set()
+        self.lift()
+        self.text_input.focus_force()
 
     def on_ok(self):
         self.result = self.text_input.get("1.0", "end-1c")
