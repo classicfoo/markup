@@ -13,8 +13,37 @@ import pyperclip  # You'll need to pip install pyperclip
 
 try:
     import pytesseract
-except ImportError:
+except Exception:
     pytesseract = None
+
+
+def resolve_tesseract_cmd():
+    env_cmd = os.environ.get("TESSERACT_CMD")
+    if env_cmd and os.path.isfile(env_cmd):
+        return env_cmd
+    which_cmd = shutil.which("tesseract")
+    if which_cmd:
+        return which_cmd
+    candidates = [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def configure_tesseract():
+    if pytesseract is None:
+        return None
+    cmd = resolve_tesseract_cmd()
+    if cmd:
+        pytesseract.pytesseract.tesseract_cmd = cmd
+    return cmd
+
+
+_TESSERACT_CMD = configure_tesseract()
 
 
 class ColorInfoDialog(tk.Toplevel):
@@ -162,25 +191,46 @@ class OcrResultDialog(tk.Toplevel):
         main_frame = ttk.Frame(self, padding="10")
         main_frame.pack(fill="both", expand=True)
 
-        ttk.Label(main_frame, text="Extracted text:").pack(anchor="w", pady=(0, 6))
-        ttk.Label(main_frame, text=f"Character count: {len(text)}").pack(anchor="w", pady=(0, 8))
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill="both", expand=True)
 
-        self.text_view = tk.Text(main_frame, width=70, height=16, wrap="word")
-        self.text_view.pack(fill="both", expand=True)
-        self.text_view.insert("1.0", text)
-        self.text_view.configure(state="disabled")
+        self.text_widget = tk.Text(text_frame, wrap="word", height=10, width=60)
+        self.text_widget.insert("1.0", text)
+        self.text_widget.pack(side="left", fill="both", expand=True)
+        self.text_widget.bind("<<Selection>>", self.update_selection_count)
+        self.text_widget.bind("<KeyRelease>", self.update_selection_count)
+        self.text_widget.bind("<ButtonRelease-1>", self.update_selection_count)
+
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.text_widget.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.text_widget.configure(yscrollcommand=scrollbar.set)
 
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill="x", pady=(10, 0))
-        ttk.Button(button_frame, text="Copy", command=lambda: pyperclip.copy(text)).pack(side="right")
-        ttk.Button(button_frame, text="Close", command=self.destroy).pack(side="right", padx=(0, 8))
+        button_frame.pack(fill="x", pady=(8, 0))
 
-        self.bind("<Escape>", lambda event: self.destroy())
-        self.protocol("WM_DELETE_WINDOW", self.destroy)
-        self.minsize(520, 320)
-        self.geometry(f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}")
+        ttk.Button(
+            button_frame,
+            text="Copy",
+            command=lambda: pyperclip.copy(self.text_widget.get("1.0", "end").rstrip())
+        ).pack(side="left")
+        self.selection_count_var = tk.StringVar(value="Selected: 0")
+        ttk.Label(
+            button_frame,
+            textvariable=self.selection_count_var
+        ).pack(side="left", padx=(8, 0))
+        ttk.Button(button_frame, text="Close", command=self.destroy).pack(side="right")
+
+        self.geometry(f"+{parent.winfo_rootx() + 60}+{parent.winfo_rooty() + 60}")
+        self.resizable(True, True)
         self.wait_visibility()
         self.grab_set()
+
+    def update_selection_count(self, event=None):
+        try:
+            selection = self.text_widget.get("sel.first", "sel.last")
+        except tk.TclError:
+            selection = ""
+        self.selection_count_var.set(f"Selected: {len(selection)}")
 
 
 class ImageViewer(tk.Tk):
@@ -209,10 +259,6 @@ class ImageViewer(tk.Tk):
         self.drag_text_dx = 0
         self.drag_text_dy = 0
         self.drag_state_saved = False
-        self.ocr_selecting = False
-        self.ocr_start_x = None
-        self.ocr_start_y = None
-        self.ocr_preview_rect = None
         self.default_text_font = "Arial"
         self.default_text_size = 14
         self.default_text_color = "red"
@@ -244,8 +290,6 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-y>", self.redo)
         self.bind("<Control-l>", lambda event: self.load_image_from_file())
         self.bind("<Control-n>", lambda event: self.open_new_window())
-        self.bind("<Control-Shift-O>", lambda event: self.extract_text_with_ocr())
-        self.bind("<Control-Shift-o>", lambda event: self.extract_text_with_ocr())
 
         if image_path:
             self.load_image(image_path)
@@ -274,15 +318,15 @@ class ImageViewer(tk.Tk):
             variable=self.drawing_mode,
             value="text"
         )
+        self.tools_submenu.add_radiobutton(
+            label="Extract Text (OCR)",
+            variable=self.drawing_mode,
+            value="ocr"
+        )
         
         self.context_menu.add_cascade(
             label="Tools",  # Changed from "Drawing Mode"
             menu=self.tools_submenu
-        )
-
-        self.context_menu.add_command(
-            label="Extract Text (OCR)",
-            command=self.extract_text_with_ocr
         )
 
         self.context_menu.add_command(
@@ -478,10 +522,6 @@ class ImageViewer(tk.Tk):
             self.canvas.configure(cursor="cross")
             return
 
-        if self.ocr_selecting:
-            self.canvas.configure(cursor="tcross")
-            return
-
         if self.dragging_text_id is not None:
             self.canvas.configure(cursor="fleur")
             return
@@ -491,22 +531,6 @@ class ImageViewer(tk.Tk):
 
     def on_button_press(self, event):
         if self.original_image is None:
-            return
-
-        if self.ocr_selecting:
-            self.ocr_start_x = self.canvas.canvasx(event.x)
-            self.ocr_start_y = self.canvas.canvasy(event.y)
-            if self.ocr_preview_rect is not None:
-                self.canvas.delete(self.ocr_preview_rect)
-            self.ocr_preview_rect = self.canvas.create_rectangle(
-                self.ocr_start_x,
-                self.ocr_start_y,
-                self.ocr_start_x + 1,
-                self.ocr_start_y + 1,
-                outline="cyan",
-                width=2,
-                dash=(6, 3),
-            )
             return
 
         selected_overlay = self.get_overlay_at_event(event)
@@ -548,6 +572,9 @@ class ImageViewer(tk.Tk):
         if self.drawing_mode.get() == "highlighter":
             outline_color = "yellow"
             fill_color = "yellow"
+        elif self.drawing_mode.get() == "ocr":
+            outline_color = "cyan"
+            fill_color = ""
         else:  # redaction mode
             outline_color = "black"
             fill_color = "black"
@@ -559,13 +586,6 @@ class ImageViewer(tk.Tk):
         )
 
     def on_move_press(self, event):
-        if self.ocr_selecting and self.ocr_preview_rect is not None:
-            cur_x, cur_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-            x0, y0 = min(self.ocr_start_x, cur_x), min(self.ocr_start_y, cur_y)
-            x1, y1 = max(self.ocr_start_x, cur_x), max(self.ocr_start_y, cur_y)
-            self.canvas.coords(self.ocr_preview_rect, x0, y0, x1, y1)
-            return
-
         if self.dragging_text_id is not None:
             overlay = next((item for item in self.text_overlays if item["id"] == self.dragging_text_id), None)
             if overlay is None:
@@ -594,20 +614,17 @@ class ImageViewer(tk.Tk):
             if self.drawing_mode.get() == "highlighter":
                 outline_color = "yellow"
                 fill_color = "yellow"
+            elif self.drawing_mode.get() == "ocr":
+                outline_color = "cyan"
+                fill_color = ""
             else:  # redaction mode
                 outline_color = "black"
                 fill_color = "black"
-                
-            self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple="gray50")
+
+            stipple = "gray50" if self.drawing_mode.get() != "ocr" else ""
+            self.canvas.itemconfig(self.rect, outline=outline_color, fill=fill_color, stipple=stipple)
 
     def on_button_release(self, event):
-        if self.ocr_selecting and self.ocr_start_x is not None and self.ocr_start_y is not None:
-            end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-            x0_canvas, y0_canvas = min(self.ocr_start_x, end_x), min(self.ocr_start_y, end_y)
-            x1_canvas, y1_canvas = max(self.ocr_start_x, end_x), max(self.ocr_start_y, end_y)
-            self.finish_ocr_selection(x0_canvas, y0_canvas, x1_canvas, y1_canvas)
-            return
-
         if self.dragging_text_id is not None:
             self.dragging_text_id = None
             self.drag_state_saved = False
@@ -615,9 +632,6 @@ class ImageViewer(tk.Tk):
             return
 
         if self.rect and self.original_image is not None:
-            # Save current state before making changes
-            self.save_state()
-            
             end_x, end_y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
             
             # Only subtract border offset if shadow is enabled
@@ -626,6 +640,11 @@ class ImageViewer(tk.Tk):
             # Determine the smallest and largest x and y coordinates
             x0, y0 = min(self.start_x, end_x) - offset, min(self.start_y, end_y) - offset
             x1, y1 = max(self.start_x, end_x) - offset, max(self.start_y, end_y) - offset
+            if self.drawing_mode.get() == "ocr":
+                self.canvas.delete(self.rect)
+                self.rect = None
+                self.run_ocr(x0, y0, x1, y1)
+                return
 
             overlay = Image.new('RGBA', self.original_image.size, (0, 0, 0, 0))
             draw = ImageDraw.Draw(overlay)
@@ -634,10 +653,13 @@ class ImageViewer(tk.Tk):
                 color = (255, 255, 0, 128)  # Yellow, 50% opacity
             else:  # redaction mode
                 color = (0, 0, 0, 255)  # Black, 100% opacity
-                
+            # Save current state before making changes
+            self.save_state()
             draw.rectangle([x0, y0, x1, y1], fill=color)
             self.original_image = Image.alpha_composite(self.original_image.convert('RGBA'), overlay)
             self.update_image()
+            self.canvas.delete(self.rect)
+            self.rect = None
 
     def save_image(self):
         export_image = self.build_export_image()
@@ -800,85 +822,41 @@ class ImageViewer(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {str(e)}")
 
-    def extract_text_with_ocr(self):
-        if not self.ensure_ocr_ready():
-            return
-
-        self.ocr_selecting = True
-        self.ocr_start_x = None
-        self.ocr_start_y = None
-        if self.ocr_preview_rect is not None:
-            self.canvas.delete(self.ocr_preview_rect)
-            self.ocr_preview_rect = None
-        self.canvas.configure(cursor="tcross")
-        messagebox.showinfo(
-            "Screenshot Markup",
-            "Drag a rectangle over the image to run OCR on that region.",
-        )
-
-    def ensure_ocr_ready(self):
-        if self.original_image is None:
-            messagebox.showinfo("Screenshot Markup", "Load or paste an image before running OCR.")
-            return False
-
+    def run_ocr(self, x0, y0, x1, y1):
         if pytesseract is None:
-            messagebox.showinfo(
-                "Screenshot Markup",
-                "OCR dependency is missing. Install it with: pip install pytesseract",
+            messagebox.showerror(
+                "OCR Unavailable",
+                "pytesseract is not installed. Install it with: pip install pytesseract\n"
+                "You also need the Tesseract OCR engine installed on your system."
             )
-            return False
-
-        if shutil.which("tesseract") is None:
-            messagebox.showinfo(
-                "Screenshot Markup",
-                "Tesseract is not installed.\nInstall it on Linux with:\n"
-                "  sudo apt install tesseract-ocr\n"
-                "or\n"
-                "  sudo pacman -S tesseract",
+            return
+        if _TESSERACT_CMD is None and shutil.which("tesseract") is None:
+            messagebox.showerror(
+                "OCR Unavailable",
+                "Tesseract OCR engine not found.\n\n"
+                "Quick fix: set the environment variable TESSERACT_CMD to your tesseract path.\n\n"
+                "Or add the Tesseract install folder to your PATH and restart the app."
             )
-            return False
+            return
+        if self.original_image is None:
+            return
 
-        return True
-
-    def finish_ocr_selection(self, x0_canvas, y0_canvas, x1_canvas, y1_canvas):
-        if self.ocr_preview_rect is not None:
-            self.canvas.delete(self.ocr_preview_rect)
-            self.ocr_preview_rect = None
-
-        self.ocr_selecting = False
-        self.ocr_start_x = None
-        self.ocr_start_y = None
-
-        x0_img, y0_img = self.get_image_coordinates(x0_canvas, y0_canvas)
-        x1_img, y1_img = self.get_image_coordinates(x1_canvas, y1_canvas)
-
-        left = max(0, int(min(x0_img, x1_img)))
-        top = max(0, int(min(y0_img, y1_img)))
-        right = min(self.original_image.width, int(max(x0_img, x1_img)))
-        bottom = min(self.original_image.height, int(max(y0_img, y1_img)))
-
-        self.canvas.configure(cursor="cross")
-
+        img_w, img_h = self.original_image.size
+        left = max(0, min(int(x0), img_w))
+        right = max(0, min(int(x1), img_w))
+        top = max(0, min(int(y0), img_h))
+        bottom = max(0, min(int(y1), img_h))
         if right - left < 2 or bottom - top < 2:
-            messagebox.showinfo("Screenshot Markup", "OCR selection is too small. Try a larger region.")
             return
 
-        image_to_ocr = self.original_image.convert("RGB")
-        self.draw_text_on_image(image_to_ocr)
-        region = image_to_ocr.crop((left, top, right, bottom))
-
+        crop = self.original_image.crop((left, top, right, bottom)).convert("RGB")
         try:
-            text = pytesseract.image_to_string(region).strip()
+            text = pytesseract.image_to_string(crop)
         except Exception as exc:
-            messagebox.showerror("Screenshot Markup", f"OCR failed: {exc}")
+            messagebox.showerror("OCR Failed", f"Failed to run OCR: {exc}")
             return
 
-        if not text:
-            messagebox.showinfo("Screenshot Markup", "OCR completed, but no text was detected.")
-            return
-
-        pyperclip.copy(text)
-        dialog = OcrResultDialog(self, text)
+        dialog = OcrResultDialog(self, text.strip())
         self.wait_window(dialog)
 
 def load_default_text_font(size):
