@@ -1,6 +1,6 @@
 # Screenshot Markup Tool
 
-A Windows and Linux desktop application for quickly marking up screenshots with highlighting, redaction, and color picking capabilities. Perfect for documentation, tutorials, or redacting sensitive information.
+A Windows and Linux desktop application for quickly marking up screenshots with highlighting, redaction, color picking, and OCR capabilities. Perfect for documentation, tutorials, or redacting sensitive information.
 
 ![Screenshot of Markup Tool in action](screenshot.jpg)
 
@@ -10,6 +10,8 @@ A Windows and Linux desktop application for quickly marking up screenshots with 
 - **Highlighter Tool**: Create semi-transparent yellow rectangles (50% opacity)
 - **Redaction Tool**: Draw solid black rectangles (100% opacity)
 - **Color Picker**: Get RGB and Hex values from any pixel
+- **Text Tool**: Add draggable, editable text overlays
+- **Extract Text (OCR)**: Run OCR from the context menu and copy detected text
 
 ### Image Enhancement
 - Optional drop shadow effect (toggleable)
@@ -31,6 +33,7 @@ A Windows and Linux desktop application for quickly marking up screenshots with 
 | Ctrl+L | Load image from file |
 | Ctrl+Z | Undo last action |
 | Ctrl+Y | Redo last action |
+| Ctrl+Shift+O | Extract text with OCR |
 
 ## Usage
 
@@ -48,7 +51,21 @@ A Windows and Linux desktop application for quickly marking up screenshots with 
   - Pillow >= 10.0.0 (Image processing)
   - pywin32 >= 306 (Windows clipboard operations)
   - pyperclip >= 1.8.2 (Cross-platform clipboard support)
+  - pytesseract >= 0.3.10 (Python OCR wrapper)
   - tkinter (Included with Python)
+  - Tesseract OCR engine installed on the system (required for OCR)
+
+### Linux OCR setup
+
+Install the Tesseract system package:
+
+```bash
+# Ubuntu/Debian
+sudo apt install tesseract-ocr
+
+# Arch/Manjaro
+sudo pacman -S tesseract
+```
 
 ## Installation
 

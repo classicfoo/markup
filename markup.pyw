@@ -11,6 +11,11 @@ from io import BytesIO
 from tkinter import filedialog, messagebox, colorchooser
 import pyperclip  # You'll need to pip install pyperclip
 
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
 
 class ColorInfoDialog(tk.Toplevel):
     def __init__(self, parent, color_rgb, x, y):
@@ -147,6 +152,36 @@ class MultilineTextDialog(tk.Toplevel):
         event.widget.invoke()
         return "break"
 
+
+class OcrResultDialog(tk.Toplevel):
+    def __init__(self, parent, text):
+        super().__init__(parent)
+        self.title("OCR Result")
+        self.transient(parent)
+
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill="both", expand=True)
+
+        ttk.Label(main_frame, text="Extracted text:").pack(anchor="w", pady=(0, 6))
+
+        self.text_view = tk.Text(main_frame, width=70, height=16, wrap="word")
+        self.text_view.pack(fill="both", expand=True)
+        self.text_view.insert("1.0", text)
+        self.text_view.configure(state="disabled")
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill="x", pady=(10, 0))
+        ttk.Button(button_frame, text="Copy", command=lambda: pyperclip.copy(text)).pack(side="right")
+        ttk.Button(button_frame, text="Close", command=self.destroy).pack(side="right", padx=(0, 8))
+
+        self.bind("<Escape>", lambda event: self.destroy())
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.minsize(520, 320)
+        self.geometry(f"+{parent.winfo_rootx() + 80}+{parent.winfo_rooty() + 80}")
+        self.wait_visibility()
+        self.grab_set()
+
+
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
@@ -204,6 +239,8 @@ class ImageViewer(tk.Tk):
         self.bind("<Control-y>", self.redo)
         self.bind("<Control-l>", lambda event: self.load_image_from_file())
         self.bind("<Control-n>", lambda event: self.open_new_window())
+        self.bind("<Control-Shift-O>", lambda event: self.extract_text_with_ocr())
+        self.bind("<Control-Shift-o>", lambda event: self.extract_text_with_ocr())
 
         if image_path:
             self.load_image(image_path)
@@ -241,6 +278,11 @@ class ImageViewer(tk.Tk):
         self.context_menu.add_command(
             label="New Window",
             command=self.open_new_window
+        )
+
+        self.context_menu.add_command(
+            label="Extract Text (OCR)",
+            command=self.extract_text_with_ocr
         )
         # Add separator
         self.context_menu.add_separator()
@@ -718,6 +760,44 @@ class ImageViewer(tk.Tk):
                 self.update_image()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {str(e)}")
+
+    def extract_text_with_ocr(self):
+        if self.original_image is None:
+            messagebox.showinfo("Screenshot Markup", "Load or paste an image before running OCR.")
+            return
+
+        if pytesseract is None:
+            messagebox.showinfo(
+                "Screenshot Markup",
+                "OCR dependency is missing. Install it with: pip install pytesseract",
+            )
+            return
+
+        if shutil.which("tesseract") is None:
+            messagebox.showinfo(
+                "Screenshot Markup",
+                "Tesseract is not installed.\nInstall it on Linux with:\n"
+                "  sudo apt install tesseract-ocr\n"
+                "or\n"
+                "  sudo pacman -S tesseract",
+            )
+            return
+
+        image_to_ocr = self.original_image.convert("RGB")
+        self.draw_text_on_image(image_to_ocr)
+        try:
+            text = pytesseract.image_to_string(image_to_ocr).strip()
+        except Exception as exc:
+            messagebox.showerror("Screenshot Markup", f"OCR failed: {exc}")
+            return
+
+        if not text:
+            messagebox.showinfo("Screenshot Markup", "OCR completed, but no text was detected.")
+            return
+
+        pyperclip.copy(text)
+        dialog = OcrResultDialog(self, text)
+        self.wait_window(dialog)
 
 def load_default_text_font(size):
     for font_name in ("arial.ttf", "segoeui.ttf", "DejaVuSans.ttf"):
