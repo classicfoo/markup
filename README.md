@@ -11,7 +11,7 @@ A Windows and Linux desktop application for quickly marking up screenshots with 
 - **Redaction Tool**: Draw solid black rectangles (100% opacity)
 - **Color Picker**: Get RGB and Hex values from any pixel
 - **Text Tool**: Add draggable, editable text overlays
-- **Extract Text (OCR)**: Run OCR from the context menu and copy detected text
+- **Extract Text (OCR)**: Select a region, run OCR, and view/copy the result with character count
 
 ### Image Enhancement
 - Optional drop shadow effect (toggleable)
