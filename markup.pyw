@@ -179,6 +179,15 @@ class OCRResultDialog(tk.Toplevel):
     def __init__(self, parent, text):
         super().__init__(parent)
         self.title("OCR Result")
+        self.case_default = "No Change"
+        self.case_options = [
+            self.case_default,
+            "Sentence case",
+            "lowercase",
+            "UPPERCASE",
+            "Capitalize Each Word",
+            "tOGGLE cASE",
+        ]
 
         self.transient(parent)
 
@@ -207,6 +216,17 @@ class OCRResultDialog(tk.Toplevel):
             text="Copy",
             command=lambda: pyperclip.copy(self.text_widget.get("1.0", "end").rstrip())
         ).pack(side="left")
+        ttk.Label(button_frame, text="Change case:").pack(side="left", padx=(8, 0))
+        self.case_var = tk.StringVar(value=self.case_default)
+        self.case_combo = ttk.Combobox(
+            button_frame,
+            textvariable=self.case_var,
+            values=self.case_options,
+            state="readonly",
+            width=22
+        )
+        self.case_combo.pack(side="left", padx=(6, 0))
+        self.case_combo.bind("<<ComboboxSelected>>", self.apply_case_change)
         self.selection_count_var = tk.StringVar(value="Selected: 0")
         ttk.Label(
             button_frame,
@@ -225,6 +245,49 @@ class OCRResultDialog(tk.Toplevel):
         except tk.TclError:
             selection = ""
         self.selection_count_var.set(f"Selected: {len(selection)}")
+
+    def apply_case_change(self, event=None):
+        selected_case = self.case_var.get()
+        if selected_case == self.case_default:
+            return
+        try:
+            selected_text = self.text_widget.get("sel.first", "sel.last")
+            start_index = self.text_widget.index("sel.first")
+            end_index = self.text_widget.index("sel.last")
+        except tk.TclError:
+            return
+        transformed_text = self.transform_case(selected_text, selected_case)
+        self.text_widget.delete(start_index, end_index)
+        self.text_widget.insert(start_index, transformed_text)
+        self.text_widget.tag_add("sel", start_index, f"{start_index}+{len(transformed_text)}c")
+        self.update_selection_count()
+
+    def transform_case(self, text, selected_case):
+        if selected_case == "Sentence case":
+            return self.to_sentence_case(text)
+        if selected_case == "lowercase":
+            return text.lower()
+        if selected_case == "UPPERCASE":
+            return text.upper()
+        if selected_case == "Capitalize Each Word":
+            return text.title()
+        if selected_case == "tOGGLE cASE":
+            return text.swapcase()
+        return text
+
+    def to_sentence_case(self, text):
+        lowered = text.lower()
+        chars = []
+        should_capitalize = True
+        for char in lowered:
+            if should_capitalize and char.isalpha():
+                chars.append(char.upper())
+                should_capitalize = False
+            else:
+                chars.append(char)
+            if char in ".!?":
+                should_capitalize = True
+        return "".join(chars)
 
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
