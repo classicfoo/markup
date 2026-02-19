@@ -199,6 +199,7 @@ class OCRResultDialog(tk.Toplevel):
 
         self.text_widget = tk.Text(text_frame, wrap="word", height=10, width=60)
         self.text_widget.insert("1.0", text)
+        self.text_widget.configure(exportselection=False)
         self.text_widget.pack(side="left", fill="both", expand=True)
         self.text_widget.bind("<<Selection>>", self.update_selection_count)
         self.text_widget.bind("<KeyRelease>", self.update_selection_count)
@@ -216,7 +217,6 @@ class OCRResultDialog(tk.Toplevel):
             text="Copy",
             command=lambda: pyperclip.copy(self.text_widget.get("1.0", "end").rstrip())
         ).pack(side="left")
-        ttk.Label(button_frame, text="Change case:").pack(side="left", padx=(8, 0))
         self.case_var = tk.StringVar(value=self.case_default)
         self.case_combo = ttk.Combobox(
             button_frame,
@@ -225,7 +225,7 @@ class OCRResultDialog(tk.Toplevel):
             state="readonly",
             width=22
         )
-        self.case_combo.pack(side="left", padx=(6, 0))
+        self.case_combo.pack(side="left", padx=(8, 0))
         self.case_combo.bind("<<ComboboxSelected>>", self.apply_case_change)
         self.selection_count_var = tk.StringVar(value="Selected: 0")
         ttk.Label(
@@ -260,6 +260,7 @@ class OCRResultDialog(tk.Toplevel):
         self.text_widget.delete(start_index, end_index)
         self.text_widget.insert(start_index, transformed_text)
         self.text_widget.tag_add("sel", start_index, f"{start_index}+{len(transformed_text)}c")
+        self.text_widget.focus_set()
         self.update_selection_count()
 
     def transform_case(self, text, selected_case):
