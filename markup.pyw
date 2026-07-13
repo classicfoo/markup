@@ -20,7 +20,7 @@ except Exception:
 
 APP_NAME = "Screenshot Markup"
 APP_USER_MODEL_ID = "michaelhuynh.screenshotmarkup.markup"
-APP_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "markup-taskbar.ico")
+APP_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "markup-icon4.ico")
 
 
 def configure_windows_app_identity():
