@@ -60,7 +60,7 @@ def main():
     parser.add_argument("--app-script", default="markup.pyw")
     parser.add_argument("--app-id", default="michaelhuynh.screenshotmarkup.markup")
     parser.add_argument("--name", default="Screenshot Markup")
-    parser.add_argument("--icon", default=os.path.join("icons", "markup.ico"))
+    parser.add_argument("--icon", default=os.path.join("icons", "markup-taskbar.ico"))
     args = parser.parse_args()
 
     if sys.platform != "win32":
