@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFilter, ImageOps, ImageFont
+import ctypes
 import sys
 import os
 import subprocess
@@ -15,6 +16,20 @@ try:
     import pytesseract
 except Exception:
     pytesseract = None
+
+
+APP_NAME = "Screenshot Markup"
+APP_USER_MODEL_ID = "michaelhuynh.screenshotmarkup.markup"
+APP_ICON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons", "markup.ico")
+
+
+def configure_windows_app_identity():
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except Exception:
+        pass
 
 
 def resolve_tesseract_cmd():
@@ -293,7 +308,12 @@ class OCRResultDialog(tk.Toplevel):
 class ImageViewer(tk.Tk):
     def __init__(self, image_path=None):
         super().__init__()
-        self.title("Screenshot Markup")
+        self.title(APP_NAME)
+        if os.path.exists(APP_ICON_PATH):
+            try:
+                self.iconbitmap(APP_ICON_PATH)
+            except tk.TclError:
+                pass
 
         # Add undo/redo stacks
         self.undo_stack = []
@@ -959,6 +979,7 @@ def copy_to_clipboard(image):
     win32clipboard.CloseClipboard()
 
 def main(image_path=None):
+    configure_windows_app_identity()
     app = ImageViewer(image_path)
     app.mainloop()
 
