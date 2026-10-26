@@ -1,6 +1,6 @@
 [package]
 name = "screenshot-markup"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A desktop screenshot annotation tool built with Rust and egui"
 license = "GPL-3.0-only"
