@@ -290,7 +290,7 @@ impl MarkupApp {
             }
             Err(_) => {
                 #[cfg(windows)]
-                if let Some(image) = read_windows_dib_image() {
+                if let Some(image) = read_windows_clipboard_image() {
                     self.replace_image(image);
                     return;
                 }
@@ -1032,16 +1032,21 @@ fn apply_case_to_selection(dialog: &mut OcrDialog) {
 }
 
 #[cfg(windows)]
-fn read_windows_dib_image() -> Option<DynamicImage> {
+fn read_windows_clipboard_image() -> Option<DynamicImage> {
     use clipboard_win::{formats, get_clipboard};
 
-    [formats::CF_DIB, formats::CF_DIBV5]
+    let dib_image = [formats::CF_DIB, formats::CF_DIBV5]
         .into_iter()
         .find_map(|format| {
             let dib = get_clipboard(formats::RawData(format)).ok()?;
             let bmp = dib_to_bmp(&dib).ok()?;
             image::load_from_memory_with_format(&bmp, image::ImageFormat::Bmp).ok()
-        })
+        });
+
+    dib_image.or_else(|| {
+        let bmp = get_clipboard(formats::Bitmap).ok()?;
+        image::load_from_memory_with_format(&bmp, image::ImageFormat::Bmp).ok()
+    })
 }
 
 fn dib_to_bmp(dib: &[u8]) -> Result<Vec<u8>, &'static str> {
