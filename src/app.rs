@@ -288,10 +288,17 @@ impl MarkupApp {
                     ),
                 }
             }
-            Err(_) => self.show_message(
-                "No image in clipboard",
-                "Copy a screenshot or another image, then try Ctrl+V.",
-            ),
+            Err(_) => {
+                #[cfg(windows)]
+                if let Some(image) = read_windows_dib_image() {
+                    self.replace_image(image);
+                    return;
+                }
+                self.show_message(
+                    "No image in clipboard",
+                    "Copy a screenshot or another image, then try Ctrl+V.",
+                );
+            }
         }
     }
 
@@ -1024,6 +1031,99 @@ fn apply_case_to_selection(dialog: &mut OcrDialog) {
     dialog.selected_count = transformed_len;
 }
 
+#[cfg(windows)]
+fn read_windows_dib_image() -> Option<DynamicImage> {
+    use clipboard_win::{formats, get_clipboard};
+
+    [formats::CF_DIB, formats::CF_DIBV5]
+        .into_iter()
+        .find_map(|format| {
+            let dib = get_clipboard(formats::RawData(format)).ok()?;
+            let bmp = dib_to_bmp(&dib).ok()?;
+            image::load_from_memory_with_format(&bmp, image::ImageFormat::Bmp).ok()
+        })
+}
+
+fn dib_to_bmp(dib: &[u8]) -> Result<Vec<u8>, &'static str> {
+    let header_size = read_u32(dib, 0).ok_or("missing DIB header")? as usize;
+    let pixel_offset = match header_size {
+        12 => {
+            if dib.len() < 12 {
+                return Err("truncated bitmap core header");
+            }
+            let bit_count = read_u16(dib, 10).ok_or("missing bit depth")? as usize;
+            let palette_entries = if bit_count <= 8 {
+                1usize << bit_count
+            } else {
+                0
+            };
+            12usize
+                .checked_add(palette_entries.checked_mul(3).ok_or("palette too large")?)
+                .ok_or("bitmap offset overflow")?
+        }
+        size if size >= 40 => {
+            if dib.len() < size {
+                return Err("truncated bitmap info header");
+            }
+            let bit_count = read_u16(dib, 14).ok_or("missing bit depth")? as usize;
+            let compression = read_u32(dib, 16).ok_or("missing compression mode")?;
+            let colors_used = read_u32(dib, 32).ok_or("missing color table size")? as usize;
+            let external_masks = if size == 40 {
+                match compression {
+                    3 => 12usize,
+                    6 => 16usize,
+                    _ => 0,
+                }
+            } else {
+                0
+            };
+            let default_palette = if bit_count <= 8 {
+                1usize << bit_count
+            } else {
+                0
+            };
+            let palette_entries = colors_used.max(default_palette);
+            size.checked_add(external_masks)
+                .and_then(|offset| offset.checked_add(palette_entries.checked_mul(4)?))
+                .ok_or("bitmap offset overflow")?
+        }
+        _ => return Err("unsupported bitmap header"),
+    };
+
+    if pixel_offset > dib.len() {
+        return Err("bitmap pixels are missing");
+    }
+    let file_size = dib
+        .len()
+        .checked_add(14)
+        .and_then(|size| u32::try_from(size).ok())
+        .ok_or("bitmap is too large")?;
+    let file_pixel_offset = pixel_offset
+        .checked_add(14)
+        .and_then(|offset| u32::try_from(offset).ok())
+        .ok_or("bitmap offset is too large")?;
+
+    let mut bmp = Vec::with_capacity(file_size as usize);
+    bmp.extend_from_slice(b"BM");
+    bmp.extend_from_slice(&file_size.to_le_bytes());
+    bmp.extend_from_slice(&[0; 4]);
+    bmp.extend_from_slice(&file_pixel_offset.to_le_bytes());
+    bmp.extend_from_slice(dib);
+    Ok(bmp)
+}
+
+fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
+    Some(u16::from_le_bytes(
+        bytes.get(offset..offset.checked_add(2)?)?.try_into().ok()?,
+    ))
+}
+
+fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(
+        bytes.get(offset..offset.checked_add(4)?)?.try_into().ok()?,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1047,5 +1147,26 @@ mod tests {
         };
         apply_case_to_selection(&mut unicode);
         assert_eq!(unicode.text, "a CAFÉ z");
+    }
+
+    #[test]
+    fn clipboard_dib_is_wrapped_as_a_decodable_bmp() {
+        let mut dib = vec![0; 40];
+        dib[0..4].copy_from_slice(&40u32.to_le_bytes());
+        dib[4..8].copy_from_slice(&1i32.to_le_bytes());
+        dib[8..12].copy_from_slice(&1i32.to_le_bytes());
+        dib[12..14].copy_from_slice(&1u16.to_le_bytes());
+        dib[14..16].copy_from_slice(&24u16.to_le_bytes());
+        dib.extend_from_slice(&[0, 0, 255, 0]);
+
+        let bmp = dib_to_bmp(&dib).expect("valid DIB should be wrapped");
+        let image = image::load_from_memory_with_format(&bmp, image::ImageFormat::Bmp)
+            .expect("wrapped DIB should decode");
+        assert_eq!(image.to_rgb8().get_pixel(0, 0).0, [255, 0, 0]);
+    }
+
+    #[test]
+    fn clipboard_dib_rejects_truncated_headers() {
+        assert!(dib_to_bmp(&[40, 0, 0, 0]).is_err());
     }
 }

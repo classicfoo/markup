@@ -1,6 +1,6 @@
 [package]
 name = "screenshot-markup"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A desktop screenshot annotation tool built with Rust and egui"
 license = "GPL-3.0-only"
@@ -15,6 +15,9 @@ imageproc = "0.25"
 rfd = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+clipboard-win = "5.4.3"
 
 [profile.release]
 lto = true
