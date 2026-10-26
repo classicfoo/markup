@@ -33,4 +33,7 @@ ENV/
 
 # Windows
 Thumbs.db
-desktop.ini 
+desktop.ini
+
+# Rust
+/target/

@@ -1,89 +1,59 @@
-# Screenshot Markup Tool
+# Screenshot Markup
 
-A Windows desktop app for quickly marking up screenshots with highlight, redaction, text overlay, and color picking tools.
-
-![Screenshot of Markup Tool in action](screenshot-windows.png)
+A Rust and egui desktop app for annotating screenshots and other images. Windows downloads are published on the [GitHub Releases page](https://github.com/classicfoo/markup/releases).
 
 ## Features
 
-### Markup Tools
-- **Highlighter Tool**: Draw semi-transparent yellow rectangles.
-- **Redaction Tool**: Draw solid black rectangles.
-- **Color Picker**: Inspect pixel position, RGB, and hex values.
-- **Text Tool**: Add, drag, and edit text overlays on top of images.
-- **OCR Tool**: Select a region and extract text with Tesseract.
+- Paste screenshots from the clipboard, open files, or pass an image path when launching.
+- Draw translucent yellow highlights and solid black redactions.
+- Pick a pixel to view and copy its position, RGB value, and hex value.
+- Add text overlays, move them by dragging, and edit them by double-clicking.
+- Select a region for OCR with Tesseract, edit the result, transform selected text's case, and copy it.
+- Undo and redo up to 20 edits.
+- Save as PNG or JPEG, or copy the composed image to the clipboard.
+- Toggle the drop shadow and adjust its offsets, blur, padding, shadow color, and background color.
+- Open additional windows from the image's right-click menu.
+- Remember the last image output format and shadow settings in the user's config directory.
+- Drop an image file onto the app to open it.
 
-### Editing
-- Undo/redo support (up to 20 states)
-- Draggable text with cursor feedback on hover
-- Context-menu tool switching
-
-### Output
-- Save as **PNG** or **JPG**
-- Default save format is **PNG**
-- App remembers the last selected save format in a local config file
-- Copy rendered result to clipboard
-
-### Windowing
-- Open additional app windows from the context menu
-
-## Keyboard Shortcuts
+## Keyboard shortcuts
 
 | Shortcut | Action |
-|----------|--------|
-| Ctrl+V | Paste image from clipboard |
-| Ctrl+C | Copy rendered image to clipboard |
-| Ctrl+S | Save image (PNG/JPG) |
-| Ctrl+L | Load image from file |
-| Ctrl+N | Open a new window |
-| Ctrl+Z | Undo last action |
-| Ctrl+Y | Redo last action |
+| --- | --- |
+| Ctrl+V | Paste an image from the clipboard |
+| Ctrl+C | Copy the rendered image |
+| Ctrl+S | Save the image as PNG or JPEG |
+| Ctrl+L | Open an image file |
+| Ctrl+N | Open another app window |
+| Ctrl+Z | Undo |
+| Ctrl+Y | Redo |
 
-## Usage
+Right-click the image to switch tools, open another window, or change shadow settings. Scroll when the image is larger than the window.
 
-1. Copy a screenshot to your clipboard (for example, `Windows+Shift+S`).
-2. Launch the application.
-3. Paste your image with `Ctrl+V`.
-4. Right-click and choose a tool from the context menu.
-5. Draw highlight/redaction regions, or add text and drag/edit it as needed.
-6. Save with `Ctrl+S` or copy the final result with `Ctrl+C`.
+## OCR setup
 
-## Requirements
-- Windows 10 or later
-- Python 3.8 or higher
-- Required packages:
-  - Pillow >= 10.0.0
-  - pywin32 >= 306
-  - pyperclip >= 1.8.2
-  - pytesseract >= 0.3.10
-  - tkinter (included with Python)
-- OCR engine:
-  - Tesseract OCR (installed separately)
+OCR uses the Tesseract executable installed on the computer. Install Tesseract and make `tesseract` available on `PATH`, or set `TESSERACT_CMD` to its full path. The app remains usable when Tesseract is not installed; only OCR is unavailable.
 
-## Installation
+## Build from source
 
-1. Install Python 3.8+ from [python.org](https://www.python.org/downloads/) and enable `Add Python to PATH`.
-2. Download and extract this project.
-3. Open PowerShell in the project folder.
-4. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-5. Run the app:
-   ```bash
-   python markup.pyw
-   ```
+Install the stable Rust toolchain, then run:
 
-## OCR Setup (Windows)
+```sh
+cargo run --release
+```
 
-1. Install Tesseract OCR.
-2. If OCR fails with "Tesseract OCR engine not found", either:
-   - Add the Tesseract install folder to your `PATH`, then restart the app, or
-   - Set `TESSERACT_CMD` to the full `tesseract.exe` path, for example:
-     ```
-     C:\Program Files\Tesseract-OCR\tesseract.exe
-     ```
+Run the automated checks with:
+
+```sh
+cargo test --all-targets
+```
+
+To open an image at startup:
+
+```sh
+cargo run --release -- path/to/screenshot.png
+```
 
 ## License
 
-This project is licensed under the GPLv3 License. See `LICENSE` for details.
+This application is licensed under GPL-3.0; see [LICENSE](LICENSE). A DejaVu Sans font is bundled as a fallback for exported text and retains the license in [assets/DejaVu-LICENSE.txt](assets/DejaVu-LICENSE.txt).

@@ -1,62 +1,43 @@
-# Features 
+# Screenshot Markup feature checklist
 
-This is a break down the features of this Screenshot Markup program:
+## Image input and output
+- Paste images from the clipboard (Ctrl+V).
+- Open images from a file picker (Ctrl+L), by dropping a file, or with a path argument.
+- Accept PNG, JPEG, GIF, BMP, TIFF, and WebP images.
+- Save composed results as PNG or JPEG (Ctrl+S); remember the last format.
+- Copy the composed image to the clipboard (Ctrl+C).
 
-## Image Input/Output
-Load images from clipboard (Ctrl+V)
-Load images from file (via command line argument)
-Save images to file (Ctrl+S)
-Copy modified image to clipboard (Ctrl+C)
+## Image enhancement
+- Toggle the drop shadow from the toolbar, View menu, or image context menu.
+- Start with 13x13 offset, grey color, blur radius 8, white background, and 20px padding.
+- Configure offset, blur, padding, shadow color, and background color.
+- Add the light grey border around the image when shadow is enabled.
 
-## Image Enhancement
-Optional drop shadow effect (toggleable via context menu)
-When shadow enabled:
-- Customizable offset (currently 13,13)
-- Grey shadow color
-- Blur radius of 8
-- White background
-- 20px border padding
+## Markup tools
+- Highlighter draws translucent yellow rectangles (50% opacity).
+- Redaction draws solid black rectangles.
+- Color picker reports pixel coordinates, RGB, and hex values, with copy buttons.
+- Text tool adds red Arial text, permits dragging, and edits text on double-click.
+- OCR tool selects a region and extracts text through Tesseract.
+- OCR results are editable, report selected character count, support the original case transformations, and can be copied.
+- Select tools from the toolbar, Tools menu, or image context menu.
 
-## Drawing/Markup Tools
-Right-click context menu with tools selection:
-- Highlighter tool (default): Semi-transparent yellow rectangles (50% opacity)
-- Redaction tool: Solid black rectangles (100% opacity)
-- Color Picker tool: Shows color information at clicked position
-Click and drag functionality for drawing tools
+## Editing and windowing
+- Undo and redo markup or text changes, retaining up to 20 undo states.
+- Show a crosshair over the canvas and a move cursor over text overlays.
+- Scroll the canvas for large images and resize the initial window to fit the image where possible.
+- Open additional app windows from the context menu or Ctrl+N.
 
-## Edit Operations
-Undo (Ctrl+Z): Revert last drawing action
-Redo (Ctrl+Y): Restore previously undone action
-Maintains history of up to 20 states
+## Keyboard shortcuts
+- Ctrl+V: Paste image.
+- Ctrl+C: Copy composed image.
+- Ctrl+S: Save image.
+- Ctrl+L: Load image.
+- Ctrl+N: Open a new window.
+- Ctrl+Z: Undo.
+- Ctrl+Y: Redo.
 
-## User Interface
-Context menu for tool selection and shadow toggle
-Cross-hair cursor for precise drawing
-Window automatically resizes to fit the loaded image
-Canvas with scroll region support
-Error messages when no image is found in clipboard
-
-## Keyboard Shortcuts
-Ctrl+V: Paste image from clipboard
-Ctrl+C: Copy modified image to clipboard
-Ctrl+S: Save image as JPEG file
-Ctrl+Z: Undo last action
-Ctrl+Y: Redo last undone action
-
-## File Handling    
-Supports JPEG output format
-Can handle various input image formats
-Proper clipboard handling for Windows (using win32clipboard)
-File dialog for saving images
-
-## Error Handling
-Checks for valid clipboard content
-Handles image format conversions (RGBA, RGB)
-Shows message box for clipboard-related errors
-
-## Color Picker Features
-Shows dialog with:
-- Color preview
-- RGB values with copy button
-- Hex color code with copy button
-- Click coordinates with copy button
+## Preferences and errors
+- Save output format and shadow settings in the user's config directory.
+- Report invalid image, save, clipboard, and OCR errors in the app.
+- OCR requires Tesseract installed separately or configured with `TESSERACT_CMD`.
