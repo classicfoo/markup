@@ -79,9 +79,7 @@ pub struct MarkupApp {
 
 impl MarkupApp {
     pub fn new(cc: &eframe::CreationContext<'_>, image_path: Option<PathBuf>) -> Self {
-        let mut style = (*cc.egui_ctx.style()).clone();
-        style.visuals = egui::Visuals::light();
-        cc.egui_ctx.set_style(style);
+        cc.egui_ctx.set_theme(egui::Theme::Light);
         let mut app = Self {
             image: None,
             text_overlays: Vec::new(),
@@ -606,31 +604,31 @@ impl MarkupApp {
         }));
     }
 
-    fn show_top_bar(&mut self, ctx: &egui::Context) {
+    fn show_top_bar(&mut self, ui: &mut egui::Ui) {
         let shadow_before = self.prefs.show_shadow;
-        egui::TopBottomPanel::top("top-menu").show(ctx, |ui| {
+        egui::Panel::top("top-menu").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open…  Ctrl+L").clicked() {
                         self.open_file_dialog();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Save As…  Ctrl+S").clicked() {
                         self.save_file_dialog();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Copy Image  Ctrl+C").clicked() {
                         self.copy_image();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Paste Image  Ctrl+V").clicked() {
                         self.paste_image();
-                        ui.close_menu();
+                        ui.close();
                     }
                     ui.separator();
                     if ui.button("Open New Window  Ctrl+N").clicked() {
                         self.new_window();
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 ui.menu_button("Edit", |ui| {
@@ -642,7 +640,7 @@ impl MarkupApp {
                         .clicked()
                     {
                         self.undo();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui
                         .add_enabled(
@@ -652,14 +650,14 @@ impl MarkupApp {
                         .clicked()
                     {
                         self.redo();
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 ui.menu_button("View", |ui| {
                     ui.checkbox(&mut self.prefs.show_shadow, "Shadow");
                     if ui.button("Shadow Settings…").clicked() {
                         self.dialog = Some(Dialog::ShadowSettings);
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
                 ui.menu_button("Tools", |ui| {
@@ -693,8 +691,8 @@ impl MarkupApp {
         }
     }
 
-    fn show_canvas(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn show_canvas(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        egui::CentralPanel::default().show(ui, |ui| {
             if self.image.is_none() {
                 ui.centered_and_justified(|ui| {
                     ui.vertical_centered(|ui| {
@@ -774,8 +772,8 @@ impl MarkupApp {
                             .desired_width(f32::INFINITY)
                             .show(ui);
                         if let Some(range) = output.cursor_range {
-                            let start = range.primary.ccursor.index;
-                            let end = range.secondary.ccursor.index;
+                            let start: usize = range.primary.index.into();
+                            let end: usize = range.secondary.index.into();
                             ocr.selection = (start.min(end), start.max(end));
                             ocr.selected_count = ocr.selection.1.saturating_sub(ocr.selection.0);
                         }
@@ -945,6 +943,7 @@ impl MarkupApp {
 
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if matches!(self.dialog, Some(Dialog::Text(_) | Dialog::Ocr(_))) {
+            self.handle_text_clipboard_shortcuts(ctx);
             return;
         }
         let ctrl = Modifiers::CTRL;
@@ -970,26 +969,46 @@ impl MarkupApp {
             self.redo();
         }
     }
+
+    fn handle_text_clipboard_shortcuts(&mut self, ctx: &egui::Context) {
+        let ctrl = Modifiers::CTRL;
+        for (key, event) in [(Key::C, egui::Event::Copy), (Key::X, egui::Event::Cut)] {
+            if ctx.input_mut(|input| input.consume_key(ctrl, key)) {
+                ctx.input_mut(|input| input.events.push(event));
+            }
+        }
+        if ctx.input_mut(|input| input.consume_key(ctrl, Key::V)) {
+            if let Ok(text) = Clipboard::new().and_then(|mut clipboard| clipboard.get_text()) {
+                ctx.input_mut(|input| {
+                    input.events.push(egui::Event::Paste(text.replace("\r\n", "\n")));
+                });
+            }
+        }
+    }
 }
 
 impl eframe::App for MarkupApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_shortcuts(ctx);
         let dropped = ctx.input(|input| {
             input
                 .raw
                 .dropped_files
                 .iter()
-                .filter_map(|file| file.path.clone())
+                .map(|file| file.path().to_path_buf())
                 .collect::<Vec<_>>()
         });
         if let Some(path) = dropped.into_iter().next() {
             self.open_path(path);
         }
         self.fit_window_to_image(ctx);
-        self.show_top_bar(ctx);
-        self.show_canvas(ctx);
-        self.show_dialog(ctx);
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.show_top_bar(ui);
+        self.show_canvas(ui, &ctx);
+        self.show_dialog(&ctx);
     }
 }
 

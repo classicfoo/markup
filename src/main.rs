@@ -23,6 +23,7 @@ fn main() -> eframe::Result<()> {
             .with_min_inner_size([560.0, 360.0])
             .with_icon(icon)
             .with_title("Screenshot Markup"),
+        clipboard_shortcuts: false,
         ..Default::default()
     };
 
